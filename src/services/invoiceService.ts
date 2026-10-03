@@ -48,6 +48,7 @@ import {
   PaymentMode,
   PaymentStatus,
 } from "./paymentService";
+import { computeStockChanges, StockChange, StockItemInput } from "./stockService";
 
 /* ------------------------------------------------------------------ *
  * TYPES
@@ -395,6 +396,23 @@ export function buildInvoiceRecord(input: InvoiceBuildInput) {
   const taxType = resolveTaxType(input.businessState, input.customerState);
   const lines = normalizeInvoiceItems(input.items, taxType);
   const totals = aggregateLines(lines, taxType);
+  const storedItems = lines.map((line, index) => {
+    const source = input.items[index];
+    const discountType = resolveDiscountType(source?.discountType);
+    return {
+      productId: line.productId,
+      name: line.name,
+      hsn: line.hsn,
+      unit: line.unit,
+      price: line.unitPrice,
+      qty: line.qty,
+      discount: discountType === "percent" ? clamp(toNumber(source?.discount), 0, 100) : 0,
+      discountType,
+      discountAmount: discountType === "amount" ? line.discount : 0,
+      gst: line.gstRate,
+      priceInclusive: line.priceInclusive,
+    };
+  });
   const safeStatus: PaymentStatus =
     input.paymentStatus === "Paid" || input.paymentStatus === "Pending" || input.paymentStatus === "Partial"
       ? input.paymentStatus
@@ -410,7 +428,8 @@ export function buildInvoiceRecord(input: InvoiceBuildInput) {
     customerGstin: input.customerGstin,
     customerAddress: input.customerAddress,
     customerState: input.customerState,
-    items: lines,
+    businessState: input.businessState,
+    items: storedItems,
     subtotal: totals.subtotal,
     discountTotal: totals.discountTotal,
     taxableAmount: totals.taxableAmount,
@@ -433,7 +452,7 @@ export function buildInvoiceRecord(input: InvoiceBuildInput) {
  * EDIT / DELETE / CANCEL RECONCILIATION (PHASES 9 + 10)
  * ------------------------------------------------------------------ */
 
-export type ReconcilableItem = { productId: unknown; qty: unknown };
+export type ReconcilableItem = { productId: string; qty: number };
 
 export type InvoiceReconciliation = {
   /** Signed stock deltas (productId -> delta; negative = deduct more). */
@@ -485,6 +504,92 @@ export function reconcileInvoiceEdit(
   };
 }
 
+/* ------------------------------------------------------------------ *
+ * ONE PLANNER FOR EVERY INVOICE EVENT (PHASES 9 + 10)
+ *
+ * create : old = null,           new = invoice
+ * edit   : old = previous,       new = edited invoice
+ * cancel : old = invoice,        new = null
+ *
+ * The planner is the ONLY place that decides what an invoice event does to
+ * stock, payments and the customer's outstanding balance, so an edit can
+ * never deduct stock twice and a cancel can never leave stock deducted.
+ * ------------------------------------------------------------------ */
+
+export type InvoiceMutationPlan = {
+  /** Signed stock deltas (negative = deduct more, positive = restock). */
+  stockChanges: StockChange[];
+  /** Change to the customer's outstanding balance. */
+  outstandingDelta: number;
+  /** Change to the amount received. */
+  paidDelta: number;
+  /** Change to billed revenue. */
+  totalDelta: number;
+  /** Change to GST collected. */
+  gstDelta: number;
+};
+
+function invoiceItems(invoice: StoredInvoiceLike | null | undefined): StockItemInput[] {
+  return (((invoice as { items?: StockItemInput[] })?.items || []) as StockItemInput[]).map((it) => ({
+    productId: String(it?.productId ?? ""),
+    qty: toNumber(it?.qty),
+  }));
+}
+
+/**
+ * Plan an invoice CREATE / EDIT / CANCEL event.
+ *
+ * Because the stock deltas are computed as `old − new`, editing a line from
+ * qty 2 to qty 5 deducts exactly 3 more units — never another 5. Passing
+ * `null` as the new invoice reverses the old invoice completely (delete /
+ * cancel). When the old invoice is already cancelled it contributes nothing.
+ */
+export function planInvoiceMutation(
+  oldInvoice: StoredInvoiceLike | null | undefined,
+  newInvoice: StoredInvoiceLike | null | undefined,
+  options: { businessState?: unknown } = {},
+): InvoiceMutationPlan {
+  const oldCancelled = String((oldInvoice as { status?: unknown })?.status ?? "").toLowerCase() === "cancelled";
+  const old = oldCancelled ? null : oldInvoice;
+  const oldItems = invoiceItems(old);
+  const newItems = invoiceItems(newInvoice);
+
+  const oldCalc = old ? calculateInvoice(old, options) : null;
+  const newCalc = newInvoice ? calculateInvoice(newInvoice, options) : null;
+
+  return {
+    stockChanges: computeStockChanges(oldItems, newItems),
+    outstandingDelta: roundMoney(toNumber(newCalc?.balance) - toNumber(oldCalc?.balance)),
+    paidDelta: roundMoney(toNumber(newCalc?.paidAmount) - toNumber(oldCalc?.paidAmount)),
+    totalDelta: roundMoney(toNumber(newCalc?.grandTotal) - toNumber(oldCalc?.grandTotal)),
+    gstDelta: roundMoney(toNumber(newCalc?.gstTotal) - toNumber(oldCalc?.gstTotal)),
+  };
+}
+
+/**
+ * The same plan, but driven by raw line inputs (used by the create/edit form
+ * before the invoice record exists).
+ */
+export function planInvoiceMutationFromItems(
+  oldInvoice: StoredInvoiceLike | null | undefined,
+  newItems: InvoiceLineInput[],
+  newCalculation: { grandTotal: number; paidAmount: number; balance: number; gstTotal?: number },
+  options: { businessState?: unknown } = {},
+): InvoiceMutationPlan {
+  const oldCancelled = String((oldInvoice as { status?: unknown })?.status ?? "").toLowerCase() === "cancelled";
+  const old = oldCancelled ? null : oldInvoice;
+  const oldCalc = old ? calculateInvoice(old, options) : null;
+  const reconciliation = newItems
+    ? calculateInvoice({ items: newItems, businessState: options.businessState } as StoredInvoiceLike)
+    : null;
+  return {
+    stockChanges: computeStockChanges(invoiceItems(old), newItems as unknown as StockItemInput[]),
+    outstandingDelta: roundMoney(newCalculation.balance - toNumber(oldCalc?.balance)),
+    paidDelta: roundMoney(newCalculation.paidAmount - toNumber(oldCalc?.paidAmount)),
+    totalDelta: roundMoney(newCalculation.grandTotal - toNumber(oldCalc?.grandTotal)),
+    gstDelta: roundMoney(toNumber(newCalculation.gstTotal ?? reconciliation?.gstTotal) - toNumber(oldCalc?.gstTotal)),
+  };
+}
 /**
  * Reconcile an invoice CANCELLATION / DELETION (PHASE 10).
  * Returns what must be REVERSED: stock restored, outstanding reduced,

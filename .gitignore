@@ -1,5 +1,6 @@
-2# dependencies
+# dependencies
 node_modules/
+.tmp-tests/
 
 # build output
 dist/

@@ -207,6 +207,88 @@ export type StockMovement = {
   returns?: unknown;
 };
 
+/* ------------------------------------------------------------------ *
+ * STOCK RECONCILIATION (PHASES 11/28)
+ *
+ *   opening + purchases + adjustmentsIn - sales - adjustmentsOut + returns
+ *   = current stock
+ *
+ * Movements are supplied by the caller (they are not stored by the app), so
+ * this stays a pure function that the reconciliation report can call.
+ * ------------------------------------------------------------------ */
+
+export type StockLedgerRow = {
+  productId: string;
+  /** Stock on record right now. */
+  actual: number;
+  movement: StockMovement;
+};
+
+export type StockReconciliationRow = StockLedgerRow & {
+  expected: number;
+  diff: number;
+  ok: boolean;
+};
+
+/**
+ * Derive the sold quantity per product from invoice items (cancelled invoices
+ * excluded) — the input the reconciliation ledger needs.
+ */
+export function salesMovements(
+  invoices: Array<{ status?: unknown; items?: Array<{ productId?: unknown; qty?: unknown }> }>,
+): Map<string, number> {
+  const out = new Map<string, number>();
+  (invoices || [])
+    .filter((inv) => String(inv?.status ?? "").toLowerCase() !== "cancelled")
+    .forEach((inv) => {
+      itemQuantityMap((inv?.items || []) as StockItemInput[]).forEach((qty, id) => {
+        out.set(id, (out.get(id) || 0) + qty);
+      });
+    });
+  return out;
+}
+
+/** Compare recorded stock against the documented movement ledger. */
+export function reconcileStock(rows: StockLedgerRow[]): { ok: boolean; rows: StockReconciliationRow[] } {
+  const result = (rows || []).map((row) => {
+    const expected = roundMoney(expectedCurrentStock(row.movement));
+    const actual = roundMoney(row.actual);
+    const diff = roundMoney(actual - expected);
+    return { ...row, expected, actual, diff, ok: Math.abs(diff) < 0.005 };
+  });
+  return { ok: result.every((r) => r.ok), rows: result };
+}
+
+/** Per-product low-stock threshold, falling back to the app-wide default. */
+export function productMinStock(
+  product: { minStock?: unknown } | null | undefined,
+  fallback: number = LOW_STOCK_THRESHOLD,
+): number {
+  const explicit = product?.minStock;
+  if (explicit === undefined || explicit === null || explicit === "") return fallback;
+  return toNumber(explicit, fallback);
+}
+
+/** Products at or below THEIR OWN minimum stock (settings-aware). */
+export function lowStockRows<T extends StockLike & { minStock?: unknown; name?: unknown; unit?: unknown }>(
+  products: T[],
+  fallback: number = LOW_STOCK_THRESHOLD,
+): Array<{ id: string; name: string; stock: number; unit: string; minStock: number }> {
+  return (products || [])
+    .map((p) => ({
+      id: String(p.id),
+      name: String(p.name ?? ""),
+      stock: toNumber(p.stock),
+      unit: String(p.unit ?? "pcs"),
+      minStock: productMinStock(p, fallback),
+    }))
+    .filter((p) => p.stock <= p.minStock);
+}
+
+/**
+ * PHASE 11 — the documented stock movement identity:
+ *   opening + purchases + adjustmentsIn - sales - adjustmentsOut + returns
+ */
 export function expectedCurrentStock(movement: StockMovement): number {
   const m = movement || {};
   return (
@@ -216,5 +298,32 @@ export function expectedCurrentStock(movement: StockMovement): number {
     toNumber(m.sales) -
     toNumber(m.adjustmentsOut) +
     toNumber(m.returns)
+  );
+}
+
+/**
+ * PHASE 12 — opening stock, derived when it is not stored explicitly.
+ *   opening = current - purchases + sales - adjustmentsIn + adjustmentsOut - returns
+ */
+export function derivedOpeningStock(current: unknown, movement: StockMovement): number {
+  const m = movement || {};
+  return roundMoney(
+    toNumber(current) -
+      toNumber(m.purchases) -
+      toNumber(m.adjustmentsIn) +
+      toNumber(m.sales) +
+      toNumber(m.adjustmentsOut) -
+      toNumber(m.returns),
+  );
+}
+
+/**
+ * Net stock delta of the documented ledger (purchases + in − out + returns).
+ * Combined with `salesMovements` this fully explains a stock figure.
+ */
+export function ledgerNetChange(movement: StockMovement): number {
+  const m = movement || {};
+  return roundMoney(
+    toNumber(m.purchases) + toNumber(m.adjustmentsIn) - toNumber(m.adjustmentsOut) + toNumber(m.returns),
   );
 }

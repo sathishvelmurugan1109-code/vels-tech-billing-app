@@ -59,7 +59,10 @@ export function resolvePaidAmount(
 /** Sum multiple payment entries into one authoritative paid amount. */
 export function sumPayments(entries: Array<{ amount: unknown } | unknown>): number {
   return addMoney(
-    ...entries.map((e) => (typeof e === "object" && e !== null ? (e as any).amount : e)),
+    ...entries.map((e) => {
+      const raw = typeof e === "object" && e !== null ? (e as any).amount : e;
+      return sanitizePayment(raw);
+    }),
   );
 }
 

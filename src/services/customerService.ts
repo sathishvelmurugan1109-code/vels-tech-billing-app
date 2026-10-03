@@ -11,6 +11,7 @@
  */
 
 import { clamp, roundMoney, sumMoney, toNumber } from "./money";
+import { calculateInvoice, StoredInvoiceLike } from "./invoiceService";
 
 /** Cancelled invoices never contribute to any outstanding. */
 function isCancelled(inv: { status?: unknown }): boolean {
@@ -30,6 +31,15 @@ export type CustomerPaymentLike = {
   amount?: unknown;
 };
 
+function invoiceBalance(inv: CustomerInvoiceLike): number {
+  if (Array.isArray((inv as { items?: unknown }).items)) {
+    return calculateInvoice(inv as StoredInvoiceLike).balance;
+  }
+  const total = roundMoney(inv?.grandTotal);
+  const paid = clamp(roundMoney(inv?.paidAmount), 0, Math.max(0, total));
+  return Math.max(0, roundMoney(total - paid));
+}
+
 /** Sum of UNPAID balances (grandTotal − paidAmount) across live invoices. */
 export function customerOutstandingFromInvoices(
   customerId: unknown,
@@ -39,11 +49,7 @@ export function customerOutstandingFromInvoices(
   const balances = (invoices || [])
     .filter((inv) => String(inv?.customerId ?? "") === id)
     .filter((inv) => !isCancelled(inv))
-    .map((inv) => {
-      const total = roundMoney(inv?.grandTotal);
-      const paid = clamp(roundMoney(inv?.paidAmount), 0, Math.max(0, total));
-      return Math.max(0, roundMoney(total - paid));
-    });
+    .map(invoiceBalance);
   return sumMoney(balances);
 }
 
@@ -93,11 +99,7 @@ export function totalOutstanding(
   return sumMoney(
     (invoices || [])
       .filter((inv) => !isCancelled(inv))
-      .map((inv) => {
-        const total = roundMoney(inv?.grandTotal);
-        const paid = clamp(roundMoney(inv?.paidAmount), 0, Math.max(0, total));
-        return Math.max(0, roundMoney(total - paid));
-      }),
+      .map(invoiceBalance),
   );
 }
 
