@@ -5,16 +5,20 @@ export default function Login({ onDone }: { onDone: () => void }) {
   const [email, setEmail] = useState("admin@velstech.in");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setErr("");
+    setLoading(true);
     try {
       const d = await api.login(email, password);
       localStorage.setItem("vels_admin_token", d.token);
       onDone();
     } catch (e: any) {
-      setErr(e.message);
+      setErr(e.message || "Failed to sign in.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -35,7 +39,9 @@ export default function Login({ onDone }: { onDone: () => void }) {
         <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Password"
           className="mt-3 h-11 w-full rounded-xl border border-white/10 bg-black/40 px-3 text-sm text-white outline-none focus:border-violet-500" />
         {err && <div className="mt-3 text-xs text-red-400">{err}</div>}
-        <button className="mt-5 h-11 w-full rounded-xl bg-violet-600 text-sm font-bold text-white hover:bg-violet-500">Sign in</button>
+        <button disabled={loading} className="mt-5 h-11 w-full rounded-xl bg-violet-600 text-sm font-bold text-white hover:bg-violet-500 disabled:opacity-50">
+          {loading ? "Signing in..." : "Sign in"}
+        </button>
         <div className="mt-3 text-center text-[11px] text-slate-500">Default: admin@velstech.in / Admin@123</div>
       </form>
     </div>

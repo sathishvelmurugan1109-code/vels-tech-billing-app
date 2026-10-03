@@ -153,6 +153,52 @@ export function createFullBackup(data: {
 }
 
 /**
+ * Safely downloads a backup payload as an actual .json file.
+ * Uses application/json;charset=utf-8 MIME type and browser Blob download pattern.
+ * Prevents navigation, inline rendering, or opening in a new tab.
+ */
+export function downloadBackupFile(backupData: FullBackupPayload): { ok: boolean; error?: string } {
+  try {
+    const json = JSON.stringify(backupData, null, 2);
+    const blob = new Blob([json], { type: "application/json;charset=utf-8" });
+
+    if (typeof window === "undefined" || !document || !document.createElement) {
+      return { ok: true };
+    }
+
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.style.display = "none";
+    anchor.style.position = "fixed";
+    anchor.style.left = "-9999px";
+    anchor.href = url;
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `vels-tech-backup-${dateStr}.json`;
+    anchor.href = url;
+    anchor.setAttribute("download", filename);
+    anchor.download = filename;
+
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+
+    setTimeout(() => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        // cleanup safe
+      }
+    }, 1000);
+
+    return { ok: true };
+  } catch (err: any) {
+    console.error("Backup download error:", err);
+    return { ok: false, error: err?.message || "Failed to download backup" };
+  }
+}
+
+/**
  * Validates and imports a full backup file.
  */
 export function validateAndRestoreBackup(

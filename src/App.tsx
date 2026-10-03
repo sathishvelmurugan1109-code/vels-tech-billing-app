@@ -20,6 +20,7 @@ import {
   Box,
   MapPin,
   Printer,
+  Download,
   Smartphone,
   Check,
   RotateCcw,
@@ -59,6 +60,7 @@ import {
   safeSetStorage,
   transactionalStorageUpdate,
   createFullBackup,
+  downloadBackupFile,
   validateAndRestoreBackup,
   STORAGE_KEYS,
   addMoney,
@@ -146,12 +148,13 @@ const seedSuppliers: Supplier[] = [
 
 const defaultSettings: CompanySettings = {
   companyName: "VELS TECH",
-  address: "SF No 412/2, Palladam Road, Palladam, Tiruppur - 641664, Tamil Nadu",
+  address: "SF No 412/2, Main Road, Veppur, Tamil Nadu",
   gstin: "33AAJFV1234B1Z7",
   phone: "+91 98765 00001",
   email: "billing@velstech.in",
   state: "Tamil Nadu",
-  invoiceTerms: "1. Goods once sold will not be taken back.\n2. Warranty as per manufacturer policy.\n3. Subject to Palladam jurisdiction.\n4. E. & O.E.",
+  location: "Veppur",
+  invoiceTerms: "1. Goods once sold will not be taken back.\n2. Warranty as per manufacturer policy.\n3. Subject to Veppur jurisdiction.\n4. E. & O.E.",
   logoText: "VELS TECH",
   logo: "",
   upiId: "vels.tech@okicici",
@@ -165,7 +168,7 @@ const defaultSettings: CompanySettings = {
   defaultPaymentMode: "UPI",
   defaultGst: 18,
   defaultNotes: "",
-  footerMessage: "Thank you for shopping at VELS TECH • Palladam, Tamil Nadu",
+  footerMessage: "Thank you for shopping at VELS TECH • Veppur, Tamil Nadu",
 };
 
 export type AppView =
@@ -222,8 +225,27 @@ export default function App() {
   );
   const [settings, setSettings] = useState<CompanySettings>(() => {
     const stored = safeGetStorage<Partial<CompanySettings>>(STORAGE_KEYS.SETTINGS, {});
-    return { ...defaultSettings, ...stored };
+    const combined = { ...defaultSettings, ...stored };
+    if (!combined.location || /palladam/i.test(combined.location)) {
+      combined.location = "Veppur";
+    }
+    if (combined.address && /palladam/i.test(combined.address)) {
+      combined.address = combined.address.replace(/palladam/gi, "Veppur");
+    }
+    if (combined.invoiceTerms && /palladam/i.test(combined.invoiceTerms)) {
+      combined.invoiceTerms = combined.invoiceTerms.replace(/palladam/gi, "Veppur");
+    }
+    if (combined.footerMessage && /palladam/i.test(combined.footerMessage)) {
+      combined.footerMessage = combined.footerMessage.replace(/palladam/gi, "Veppur");
+    }
+    return combined;
   });
+
+  // Dynamic Browser Tab Title with location
+  useEffect(() => {
+    const loc = settings.location || "Veppur";
+    document.title = `Vels Tech - Billing • ${loc}`;
+  }, [settings.location]);
 
   // Navigation View
   const [view, setView] = useState<AppView>("dashboard");
@@ -627,28 +649,26 @@ export default function App() {
   };
 
   // --- Handlers: Backup & Restore ---
-  const handleExportBackup = () => {
-    const backup = createFullBackup({
-      products,
-      customers,
-      suppliers,
-      invoices,
-      purchases,
-      payments,
-      stockMovements,
-      salesReturns,
-      expenses,
-      settings,
-    });
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `vels-tech-backup-${todayISO()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  const handleExportBackup = (): boolean => {
+    try {
+      const backup = createFullBackup({
+        products,
+        customers,
+        suppliers,
+        invoices,
+        purchases,
+        payments,
+        stockMovements,
+        salesReturns,
+        expenses,
+        settings,
+      });
+      const res = downloadBackupFile(backup);
+      return res.ok;
+    } catch (err) {
+      console.error("Backup export error:", err);
+      return false;
+    }
   };
 
   const handleImportBackup = () => {
@@ -767,7 +787,7 @@ export default function App() {
           <div className="leading-tight">
             <div className="font-extrabold tracking-[-0.02em] text-[15px]">VELS TECH</div>
             <div className="text-[10px] text-zinc-400 font-bold tracking-widest uppercase">
-              BILLING • PALLADAM
+              BILLING • {settings.location || "VEPPUR"}
             </div>
           </div>
         </div>
@@ -834,7 +854,9 @@ export default function App() {
             <img src={appLogo} alt="Vels Tech Logo" className="h-8 w-8 rounded-lg object-cover" />
             <div>
               <div className="font-extrabold text-[15px] leading-tight">VELS TECH</div>
-              <div className="text-[10px] text-zinc-400 font-semibold">BILLING • PALLADAM</div>
+              <div className="text-[10px] text-zinc-400 font-semibold uppercase">
+                BILLING • {settings.location || "VEPPUR"}
+              </div>
             </div>
           </div>
 

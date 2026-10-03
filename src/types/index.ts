@@ -251,6 +251,7 @@ export interface CompanySettings {
   phone: string;
   email: string;
   state: string;
+  location?: string;
   invoiceTerms: string;
   logoText: string;
   logo: string;

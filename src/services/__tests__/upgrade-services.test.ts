@@ -123,7 +123,7 @@ describe("supplierService — supplier transactions & statement ledger", () => {
     name: "Sri Lakshmi Traders",
     phone: "9876543210",
     email: "lakshmi@example.com",
-    address: "Palladam",
+    address: "Veppur",
     state: "Tamil Nadu",
     openingBalance: 5000,
     createdAt: "2026-09-01T00:00:00.000Z",
@@ -202,6 +202,7 @@ import {
   safeSetStorage,
   transactionalStorageUpdate,
   createFullBackup,
+  downloadBackupFile,
   validateAndRestoreBackup,
   STORAGE_KEYS,
 } from "../storageService";
@@ -263,6 +264,26 @@ describe("storageService — transactional storage & backup validation", () => {
     const res2 = validateAndRestoreBackup(missingArrays, () => {});
     assert.equal(res2.ok, false);
     assert.ok(res2.error?.includes("missing"));
+  });
+
+  it("safely generates and triggers backup download format", () => {
+    const backup = createFullBackup({
+      products: [],
+      customers: [],
+      suppliers: [],
+      invoices: [],
+      purchases: [],
+      payments: [],
+      stockMovements: [],
+      salesReturns: [],
+      expenses: [],
+      settings: {
+        companyName: "VELS TECH",
+      },
+    });
+
+    const res = downloadBackupFile(backup);
+    assert.equal(res.ok, true);
   });
 });
 

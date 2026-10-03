@@ -20,7 +20,7 @@ import type { CompanySettings } from "../types";
 export interface SettingsPageProps {
   settings: CompanySettings;
   onUpdateSettings: (newSettings: CompanySettings) => void;
-  onExportBackup: () => void;
+  onExportBackup: () => boolean | void;
   onImportBackup: () => void;
   onResetData: () => void;
 }
@@ -40,6 +40,27 @@ export function SettingsPage({
   const [logoError, setLogoError] = useState("");
   const [upiQrError, setUpiQrError] = useState("");
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [backupMsg, setBackupMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const handleExportClick = () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    setBackupMsg(null);
+    try {
+      const ok = onExportBackup();
+      if (ok === false) {
+        setBackupMsg({ type: "error", text: "Unable to create backup. Please try again." });
+      } else {
+        setBackupMsg({ type: "success", text: "Backup downloaded successfully." });
+      }
+    } catch {
+      setBackupMsg({ type: "error", text: "Unable to create backup. Please try again." });
+    } finally {
+      setTimeout(() => setIsExporting(false), 1500);
+      setTimeout(() => setBackupMsg(null), 5000);
+    }
+  };
 
   const updateField = (key: keyof CompanySettings, value: any) => {
     setForm((prev) => {
@@ -168,7 +189,7 @@ export function SettingsPage({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
+            <div>
               <label className="text-[11px] font-bold text-zinc-600 uppercase">
                 LEGAL BUSINESS NAME
               </label>
@@ -177,6 +198,19 @@ export function SettingsPage({
                 value={form.companyName}
                 onChange={(e) => updateField("companyName", e.target.value)}
                 className="mt-1 w-full h-11 px-3.5 rounded-xl border border-zinc-200 text-[13px] font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-zinc-600 uppercase">
+                BUSINESS LOCATION / CITY
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Veppur"
+                value={form.location || ""}
+                onChange={(e) => updateField("location", e.target.value)}
+                className="mt-1 w-full h-11 px-3.5 rounded-xl border border-zinc-200 text-[13px] font-semibold focus:outline-none"
               />
             </div>
 
@@ -507,11 +541,28 @@ export function SettingsPage({
                 purchases, payments, and settings.
               </p>
               <button
-                onClick={onExportBackup}
-                className="w-full h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[13px] flex items-center justify-center gap-2 shadow-sm transition"
+                disabled={isExporting}
+                onClick={handleExportClick}
+                className="w-full h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[13px] flex items-center justify-center gap-2 shadow-sm transition disabled:opacity-50"
               >
-                <Download className="h-4 w-4" /> Download Backup File
+                <Download className="h-4 w-4" /> {isExporting ? "Downloading..." : "Download Backup File"}
               </button>
+              {backupMsg && (
+                <div
+                  className={`p-2.5 rounded-xl border text-[12px] flex items-center gap-2 ${
+                    backupMsg.type === "success"
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                      : "bg-red-50 border-red-200 text-red-800"
+                  }`}
+                >
+                  {backupMsg.type === "success" ? (
+                    <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+                  )}
+                  <span>{backupMsg.text}</span>
+                </div>
+              )}
             </div>
 
             <div className="p-4 rounded-2xl border border-zinc-200 bg-zinc-50/50 space-y-3">

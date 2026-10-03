@@ -27,7 +27,8 @@ export type Stats = {
   monthlyGrowth: { month: string; count: number }[];
 };
 
-const API = (import.meta as any).env?.VITE_API_URL || "http://localhost:5000";
+const env = (import.meta as any).env || {};
+const API = env.VITE_MASTER_ADMIN_API_URL || env.VITE_API_URL || "http://localhost:5000";
 
 function headers() {
   const token = localStorage.getItem("vels_admin_token");
@@ -35,14 +36,48 @@ function headers() {
 }
 
 async function req(path: string, init?: RequestInit) {
-  const res = await fetch(`${API}${path}`, { ...init, headers: { ...headers(), ...(init?.headers || {}) } });
-  if (res.status === 401) {
-    localStorage.removeItem("vels_admin_token");
-    if (!location.pathname.startsWith("/master-admin")) location.href = "/master-admin";
-    throw new Error("Unauthorized");
+  const method = init?.method || "GET";
+  if (env.DEV) {
+    console.log(`[MASTER ADMIN] API: ${API} | Endpoint: ${path} | Method: ${method}`);
   }
+
+  let res: Response;
+  try {
+    res = await fetch(`${API}${path}`, {
+      ...init,
+      headers: { ...headers(), ...(init?.headers || {}) },
+    });
+  } catch (err: any) {
+    console.error(`[MASTER ADMIN Network Error] Endpoint: ${path}`, err);
+    throw new Error("Unable to connect to Master Admin server.");
+  }
+
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || "Request failed");
+
+  if (res.status === 401) {
+    if (!path.includes("/auth/login")) {
+      localStorage.removeItem("vels_admin_token");
+      if (!location.pathname.startsWith("/master-admin")) location.href = "/master-admin";
+    }
+    throw new Error(data.message || "Invalid email or password.");
+  }
+
+  if (res.status === 403) {
+    throw new Error(data.message || "Admin access denied.");
+  }
+
+  if (res.status === 503 || (typeof data.message === "string" && data.message.toLowerCase().includes("database"))) {
+    throw new Error("Master Admin database is unavailable.");
+  }
+
+  if (res.status >= 500) {
+    throw new Error("Master Admin server error.");
+  }
+
+  if (!res.ok) {
+    throw new Error(data.message || `Request failed with status ${res.status}`);
+  }
+
   return data;
 }
 
