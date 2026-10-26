@@ -11,7 +11,8 @@
     "declaration": false,
     "sourceMap": false,
     "rootDir": "src",
-    "outDir": ".tmp-tests"
+    "outDir": ".tmp-tests",
+    "jsx": "react-jsx"
   },
   "include": ["src/services/**/*"]
 }

@@ -1,6 +1,7 @@
 import React from "react";
 import { formatCurrency, roundMoney } from "../services/money";
 import { generateQrDataUrl, buildUpiUri } from "../services/qrService";
+import { calculateInvoice } from "../services/invoiceService";
 import type { Invoice, CompanySettings } from "../types";
 import { Phone, Mail, Calendar, Check, AlertCircle } from "lucide-react";
 
@@ -30,10 +31,17 @@ export function normalizeWaNumber(raw: string) {
 }
 
 export function buildWhatsAppText(inv: Invoice, settings: CompanySettings): string {
-  const lines = inv.items.map(
-    (it, i) =>
-      `${i + 1}. ${it.name} (HSN ${it.hsn}) - ${it.qty} x ${formatCurrency(it.price)}, Disc ${it.discount || 0}%, GST ${it.gst}%`,
-  );
+  const calculatedLines = calculateInvoice(inv, {
+    businessState: inv.businessState,
+  }).lines;
+  const lines = inv.items.map((it, i) => {
+    const line = calculatedLines[i];
+    const discount =
+      line.discountType === "amount"
+        ? formatCurrency(line.discount)
+        : `${it.discount || 0}%`;
+    return `${i + 1}. ${it.name} (HSN ${it.hsn}) - ${it.qty} x ${formatCurrency(it.price)}, Disc ${discount}, GST ${line.gstRate}%, Line total ${formatCurrency(line.lineTotal)}`;
+  });
 
   return [
     `*${settings.companyName}*`,
@@ -111,12 +119,16 @@ export function buildInvoiceHtmlDoc(inv: Invoice, settings: CompanySettings, inv
         )
       : "");
 
+  const calculatedLines = calculateInvoice(inv, {
+    businessState: inv.businessState,
+  }).lines;
   const rows = inv.items
     .map((it, idx) => {
-      const gross = it.price * it.qty;
-      const disc = (gross * (it.discount || 0)) / 100;
-      const taxable = gross - disc;
-      const gstAmt = (taxable * it.gst) / 100;
+      const line = calculatedLines[idx];
+      const discountLabel =
+        line.discountType === "amount"
+          ? formatCurrency(line.discount)
+          : `${it.discount || 0}%`;
       return `<tr>
         <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:center;">${idx + 1}</td>
         <td style="padding:8px;border-bottom:1px solid #e2e8f0;">
@@ -125,10 +137,10 @@ export function buildInvoiceHtmlDoc(inv: Invoice, settings: CompanySettings, inv
         </td>
         <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:center;">${it.qty} ${escapeHtml(it.unit || "pcs")}</td>
         <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right;">${formatCurrency(it.price)}</td>
-        <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right;">${it.discount || 0}%</td>
-        <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right;">${formatCurrency(taxable)}</td>
-        <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right;">${it.gst}%</td>
-        <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;">${formatCurrency(taxable + gstAmt)}</td>
+        <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right;">${discountLabel}</td>
+        <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right;">${formatCurrency(line.taxableAmount)}</td>
+        <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right;">${line.gstRate}%</td>
+        <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;">${formatCurrency(line.lineTotal)}</td>
       </tr>`;
     })
     .join("");
@@ -302,6 +314,9 @@ export function buildInvoiceHtmlDoc(inv: Invoice, settings: CompanySettings, inv
 
 export function InvoiceRenderer({ invoice, settings, invoiceLogo, isPrintArea = false }: InvoiceRendererProps) {
   const balance = Math.max(0, invoice.grandTotal - invoice.paidAmount);
+  const calculatedLines = calculateInvoice(invoice, {
+    businessState: invoice.businessState,
+  }).lines;
 
   // Dynamic UPI QR code generation if UPI is configured
   const upiUrl = settings.upiId
@@ -466,10 +481,14 @@ export function InvoiceRenderer({ invoice, settings, invoiceLogo, isPrintArea = 
               </thead>
               <tbody className="divide-y divide-zinc-100">
                 {invoice.items.map((it, idx) => {
-                  const line = it.price * it.qty;
-                  const disc = (line * (it.discount || 0)) / 100;
-                  const taxable = line - disc;
-                  const gstAmt = (taxable * it.gst) / 100;
+                  const lineTotals = calculatedLines[idx];
+                  const taxable = lineTotals.taxableAmount;
+                  const discountLabel =
+                    lineTotals.discountType === "amount"
+                      ? formatCurrency(lineTotals.discount)
+                      : it.discount
+                        ? `${it.discount}%`
+                        : "—";
                   return (
                     <tr key={idx} className="hover:bg-zinc-50/50">
                       <td className="px-3 py-3 text-center text-zinc-400">{idx + 1}</td>
@@ -484,12 +503,12 @@ export function InvoiceRenderer({ invoice, settings, invoiceLogo, isPrintArea = 
                       </td>
                       <td className="px-3 py-3 text-right mono">{formatCurrency(it.price)}</td>
                       <td className="px-3 py-3 text-right mono">
-                        {it.discount ? `${it.discount}%` : "—"}
+                        {discountLabel}
                       </td>
                       <td className="px-3 py-3 text-right mono">{formatCurrency(taxable)}</td>
-                      <td className="px-3 py-3 text-center mono">{it.gst}%</td>
+                      <td className="px-3 py-3 text-center mono">{lineTotals.gstRate}%</td>
                       <td className="px-4 py-3 text-right font-bold mono">
-                        {formatCurrency(taxable + gstAmt)}
+                        {formatCurrency(lineTotals.lineTotal)}
                       </td>
                     </tr>
                   );

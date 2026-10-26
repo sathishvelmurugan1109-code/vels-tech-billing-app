@@ -9,8 +9,15 @@ import type { LoginCredentials, LoginResponse, User } from "../types/auth";
 // Development (desktop): VITE_API_URL=http://localhost:5000
 // Development (mobile): VITE_API_URL=http://YOUR_LAN_IP:5000
 // Production: VITE_API_URL=https://api.your-domain.com
-const API_BASE =
-  (import.meta as any)?.env?.VITE_API_URL || "http://localhost:5000";
+const getViteApiBase = (): string | undefined => {
+  try {
+    const meta = eval("import.meta") as any;
+    return meta?.env?.VITE_API_URL;
+  } catch {
+    return undefined;
+  }
+};
+const API_BASE = getViteApiBase() || "http://localhost:5000";
 
 const TOKEN_KEY = "vels_billing_token";
 

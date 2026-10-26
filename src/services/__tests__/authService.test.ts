@@ -127,7 +127,7 @@ describe("authService — login failure", () => {
   it("handles server errors (500)", async () => {
     setFetchMock(async () => mockJsonResponse(500, { message: "Internal server error" }));
 
-    await assert.rejects(authService.login({ email: "user@example.com", password: "Secret123" }), /Server error/);
+    await assert.rejects(authService.login({ email: "user@example.com", password: "Secret123" }), /server could not complete sign-in/);
     cleanup();
   });
 

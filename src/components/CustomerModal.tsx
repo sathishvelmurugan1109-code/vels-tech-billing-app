@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { X, Users, AlertCircle } from "lucide-react";
 import type { Customer } from "../types";
+import { normalizeWaNumber } from "./InvoiceRenderer";
 
 export const INDIAN_STATES = [
   "Tamil Nadu",
@@ -31,15 +32,19 @@ export const INDIAN_STATES = [
 
 export interface CustomerModalProps {
   customer: Customer | null;
+  existingCustomers: Customer[];
   defaultState?: string;
   onSave: (customerData: Omit<Customer, "id"> & { id?: string }) => void;
+  onSelectExisting?: (customerId: string) => void;
   onClose: () => void;
 }
 
 export function CustomerModal({
   customer,
+  existingCustomers,
   defaultState = "Tamil Nadu",
   onSave,
+  onSelectExisting,
   onClose,
 }: CustomerModalProps) {
   const [name, setName] = useState(customer?.name || "");
@@ -53,14 +58,47 @@ export function CustomerModal({
   );
   const [notes, setNotes] = useState(customer?.notes || "");
   const [error, setError] = useState("");
+  const [duplicateCustomer, setDuplicateCustomer] = useState<Customer | null>(null);
+  const submitting = useRef(false);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting.current) return;
     if (!name.trim()) {
       setError("Customer name is required");
       return;
     }
+    submitting.current = true;
 
+    if (!customer) {
+      const phoneDigits = normalizeWaNumber(phone).digits10;
+      const normalizedEmail = email.trim().toLowerCase();
+      const duplicate = existingCustomers.find((existing) => {
+        const existingPhone = normalizeWaNumber(existing.phone).digits10;
+        const samePhone =
+          phoneDigits && phoneDigits === existingPhone;
+        const sameEmail =
+          normalizedEmail &&
+          normalizedEmail === String(existing.email || "").trim().toLowerCase();
+        return samePhone || sameEmail;
+      });
+      if (duplicate) {
+        setDuplicateCustomer(duplicate);
+        setError("");
+        submitting.current = false;
+        return;
+      }
+    }
+
+    setDuplicateCustomer(null);
     onSave({
       id: customer?.id,
       name: name.trim(),
@@ -81,7 +119,12 @@ export function CustomerModal({
 
   return (
     <div className="fixed inset-0 z-[80] bg-zinc-900/60 backdrop-blur-sm grid place-items-center p-4 overflow-y-auto">
-      <div className="w-full max-w-[560px] rounded-[24px] bg-white border border-zinc-200 shadow-2xl overflow-hidden my-8">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="customer-modal-title"
+        className="w-full max-w-[560px] rounded-[24px] bg-white border border-zinc-200 shadow-2xl overflow-hidden my-8"
+      >
         {/* Header */}
         <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -89,7 +132,7 @@ export function CustomerModal({
               <Users className="h-5 w-5" />
             </div>
             <div>
-              <div className="font-extrabold text-[17px] text-zinc-900">
+              <div id="customer-modal-title" className="font-extrabold text-[17px] text-zinc-900">
                 {customer ? "Edit Customer" : "Add New Customer"}
               </div>
               <div className="text-[11px] text-zinc-500">
@@ -109,6 +152,26 @@ export function CustomerModal({
           <div className="mx-6 mt-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-[12px] flex items-center gap-2">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
+          </div>
+        )}
+
+        {duplicateCustomer && (
+          <div className="mx-6 mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-sm">
+            <p>
+              A customer with this phone number or email already exists:{" "}
+              <strong>{duplicateCustomer.name}</strong>
+              {duplicateCustomer.phone ? ` · ${duplicateCustomer.phone}` : ""}.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                onSelectExisting?.(duplicateCustomer.id);
+                onClose();
+              }}
+              className="mt-2 font-semibold underline underline-offset-2"
+            >
+              Use this customer
+            </button>
           </div>
         )}
 

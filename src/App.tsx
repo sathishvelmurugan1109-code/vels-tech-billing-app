@@ -71,7 +71,12 @@ import {
 } from "./services";
 
 // Components & Modals
-import { InvoiceRenderer, buildInvoiceHtmlDoc, normalizeWaNumber, buildCustomerWaMessage } from "./components/InvoiceRenderer";
+import {
+  InvoiceRenderer,
+  buildInvoiceHtmlDoc,
+} from "./components/InvoiceRenderer";
+import { shareInvoiceViaWhatsApp, setInvoiceLogo as setWaLogo } from "./services/whatsappService";
+import { setInvoiceLogo as setPdfLogo } from "./services/pdfService";
 import { BarcodeScannerModal } from "./components/BarcodeScannerModal";
 import { GlobalSearchModal } from "./components/GlobalSearchModal";
 import { QuickActionsModal } from "./components/QuickActionsModal";
@@ -359,6 +364,9 @@ export default function App() {
 
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [customerCreatedCallback, setCustomerCreatedCallback] = useState<
+    ((customerId: string) => void) | null
+  >(null);
 
   const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
@@ -425,6 +433,8 @@ export default function App() {
   }, []);
 
   const invoiceLogo = settings.logo || defaultLogoDataUrl || logoImg;
+  setWaLogo(invoiceLogo);
+  setPdfLogo(invoiceLogo);
 
   // --- Sync state to MongoDB (debounced) ---
   const isMongoId = (v: any) => typeof v === "string" && /^[a-f0-9]{24}$/i.test(v);
@@ -763,6 +773,7 @@ export default function App() {
 
   // --- Handlers: Customers ---
   const handleSaveCustomer = (customerData: Omit<Customer, "id"> & { id?: string }) => {
+    let savedCustomerId = customerData.id;
     if (customerData.id) {
       setCustomers((prev) =>
         prev.map((c) => (c.id === customerData.id ? ({ ...c, ...customerData } as Customer) : c)),
@@ -772,8 +783,11 @@ export default function App() {
         id: `cust_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         ...customerData,
       } as Customer;
+      savedCustomerId = cust.id;
       setCustomers((prev) => [...prev, cust]);
     }
+    if (savedCustomerId) customerCreatedCallback?.(savedCustomerId);
+    setCustomerCreatedCallback(null);
     setShowCustomerModal(false);
     setEditingCustomer(null);
   };
@@ -869,34 +883,36 @@ export default function App() {
     requestAnimationFrame(() => window.print());
   };
 
-  const shareOnWhatsApp = (inv: Invoice) => {
-    const wa = normalizeWaNumber(inv.customerPhone);
-    const msg = buildCustomerWaMessage(
-      inv.customerName,
-      inv.invoiceNo,
-      inv.date,
-      inv.grandTotal,
-      inv.paymentStatus,
-      inv.paymentMode,
+  const shareOnWhatsApp = async (inv: Invoice) => {
+    let waPhone = inv.customerPhone;
+    if (!waPhone) {
+      const entered = window.prompt(
+        "Enter the customer's WhatsApp number with country code:",
+        "",
+      );
+      if (entered === null) return;
+      waPhone = entered;
+    }
+    const result = await shareInvoiceViaWhatsApp(
+      { ...inv, customerPhone: waPhone },
       settings,
     );
-    const targetUrl = wa.waNumber
-      ? `https://wa.me/${wa.waNumber}?text=${encodeURIComponent(msg)}`
-      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
-    window.open(targetUrl, "_blank");
+    if (result.method === "failed") {
+      window.alert(result.message);
+    } else if (result.method === "download-then-wa") {
+      window.alert(result.message);
+    }
   };
 
-  const downloadInvoiceFile = (inv: Invoice) => {
-    const html = buildInvoiceHtmlDoc(inv, settings, invoiceLogo);
-    const blob = new Blob([html], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${inv.invoiceNo}.html`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  const downloadInvoiceFile = async (inv: Invoice) => {
+    const { downloadBlob, generateInvoicePdfBlob, openInvoiceForPrint } =
+      await import("./services/pdfService");
+    const pdfBlob = await generateInvoicePdfBlob(inv, settings);
+    if (pdfBlob) {
+      downloadBlob(pdfBlob, `${inv.invoiceNo}.pdf`);
+    } else {
+      openInvoiceForPrint(inv, settings);
+    }
   };
 
   // Category list helper for product modal
@@ -1261,8 +1277,9 @@ export default function App() {
                 setEditingProduct(null);
                 setShowProductModal(true);
               }}
-              onOpenAddCustomer={() => {
+              onOpenAddCustomer={(onCreated) => {
                 setEditingCustomer(null);
+                setCustomerCreatedCallback(() => onCreated);
                 setShowCustomerModal(true);
               }}
               onCancelEdit={() => {
@@ -1288,6 +1305,8 @@ export default function App() {
                 setSalesReturnInvoice(inv);
                 setShowSalesReturnModal(true);
               }}
+              onWhatsApp={shareOnWhatsApp}
+              onDownloadPdf={downloadInvoiceFile}
             />
           )}
 
@@ -1539,7 +1558,7 @@ export default function App() {
                 onClick={() => shareOnWhatsApp(viewingInvoice)}
                 className="h-10 px-4 rounded-xl bg-[#25D366] hover:bg-[#20ba5a] text-white text-[13px] font-semibold flex items-center gap-2 shadow-sm transition"
               >
-                <Smartphone className="h-4 w-4" /> WhatsApp
+                <Smartphone className="h-4 w-4" /> Send PDF via WhatsApp
               </button>
               <button
                 onClick={printCurrentInvoice}
@@ -1551,7 +1570,7 @@ export default function App() {
                 onClick={() => downloadInvoiceFile(viewingInvoice)}
                 className="h-10 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-[13px] font-semibold flex items-center gap-2 shadow-sm transition"
               >
-                <Download className="h-4 w-4" /> A4 Invoice PDF
+                <Download className="h-4 w-4" /> Download Invoice PDF
               </button>
             </div>
           </div>
@@ -1676,11 +1695,14 @@ export default function App() {
       {showCustomerModal && (
         <CustomerModal
           customer={editingCustomer}
+          existingCustomers={customers}
           defaultState={settings.state}
           onSave={handleSaveCustomer}
+          onSelectExisting={customerCreatedCallback ?? undefined}
           onClose={() => {
             setShowCustomerModal(false);
             setEditingCustomer(null);
+            setCustomerCreatedCallback(null);
           }}
         />
       )}

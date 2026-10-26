@@ -4,6 +4,7 @@ import {
   Plus,
   Eye,
   Printer,
+  Download,
   Copy,
   Trash2,
   Edit3,
@@ -16,7 +17,6 @@ import {
   FileText,
 } from "lucide-react";
 import { formatCurrency } from "../services/money";
-import { normalizeWaNumber, buildCustomerWaMessage } from "../components/InvoiceRenderer";
 import type { Invoice, CompanySettings } from "../types";
 
 export interface InvoicesPageProps {
@@ -28,6 +28,8 @@ export interface InvoicesPageProps {
   onDuplicateInvoice: (inv: Invoice) => void;
   onCancelInvoice: (inv: Invoice) => void;
   onSalesReturn: (inv: Invoice) => void;
+  onWhatsApp: (inv: Invoice) => void;
+  onDownloadPdf?: (inv: Invoice) => void;
 }
 
 export function InvoicesPage({
@@ -39,6 +41,8 @@ export function InvoicesPage({
   onDuplicateInvoice,
   onCancelInvoice,
   onSalesReturn,
+  onWhatsApp,
+  onDownloadPdf,
 }: InvoicesPageProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -66,23 +70,7 @@ export function InvoicesPage({
       .sort((a, b) => b.date.localeCompare(a.date) || b.invoiceNo.localeCompare(a.invoiceNo));
   }, [invoices, search, statusFilter, dateFilter]);
 
-  const handleWhatsAppQuick = (inv: Invoice) => {
-    const wa = normalizeWaNumber(inv.customerPhone);
-    if (!wa.waNumber) {
-      alert("No valid phone number for customer.");
-      return;
-    }
-    const msg = buildCustomerWaMessage(
-      inv.customerName,
-      inv.invoiceNo,
-      inv.date,
-      inv.grandTotal,
-      inv.paymentStatus,
-      inv.paymentMode,
-      settings,
-    );
-    window.open(`https://wa.me/${wa.waNumber}?text=${encodeURIComponent(msg)}`, "_blank");
-  };
+  const handleWhatsAppQuick = (inv: Invoice) => onWhatsApp(inv);
 
   return (
     <div className="space-y-4">
@@ -209,6 +197,13 @@ export function InvoicesPage({
                         <Eye className="h-3.5 w-3.5" />
                       </button>
                       <button
+                        title="Download PDF"
+                        onClick={() => onDownloadPdf?.(inv)}
+                        className="h-8 w-8 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white grid place-items-center transition"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </button>
+                      <button
                         title="Send WhatsApp"
                         onClick={() => handleWhatsAppQuick(inv)}
                         className="h-8 w-8 rounded-lg bg-[#25D366] hover:bg-[#20ba5a] text-white grid place-items-center transition"
@@ -300,6 +295,12 @@ export function InvoicesPage({
                   className="flex-1 min-h-[44px] rounded-xl bg-zinc-900 text-white font-semibold text-[12px] flex items-center justify-center gap-1.5"
                 >
                   <Eye className="h-4 w-4" /> View / Print
+                </button>
+                <button
+                  onClick={() => onDownloadPdf?.(inv)}
+                  className="h-11 w-11 rounded-xl bg-indigo-600 text-white grid place-items-center shrink-0"
+                >
+                  <Download className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => handleWhatsAppQuick(inv)}

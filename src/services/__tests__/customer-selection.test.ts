@@ -5,6 +5,7 @@ import { strict as assert } from "node:assert";
 import { describe, it } from "node:test";
 import {
   buildInvoiceRecord,
+  calculateLine,
   calculateInvoiceTotals,
   validateInvoiceBuild,
 } from "../invoiceService";
@@ -93,5 +94,26 @@ describe("customer selection regression", () => {
     assert.equal(saved.subtotal, live.subtotal);
     assert.equal(saved.discountTotal, live.discountTotal);
     assert.equal(saved.roundOff, live.roundOff);
+  });
+
+  it("uses canonical line totals for fixed discounts and tax-inclusive prices", () => {
+    const item = {
+      productId: "p1",
+      price: 118,
+      qty: 2,
+      discount: 0,
+      discountType: "amount" as const,
+      discountAmount: 10,
+      gst: 18,
+      priceInclusive: true,
+    };
+    const line = calculateLine(item, "intra");
+    const totals = calculateInvoiceTotals([item], BUSINESS, BUSINESS);
+
+    assert.equal(line.discount, 10);
+    assert.equal(line.lineTotal, 226);
+    assert.equal(line.lineTotal, line.taxableAmount + line.gstAmount);
+    assert.equal(totals.grandTotal, line.lineTotal);
+    assert.equal(totals.discountTotal, line.discount);
   });
 });

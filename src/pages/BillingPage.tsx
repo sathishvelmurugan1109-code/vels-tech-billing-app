@@ -18,11 +18,19 @@ import {
   UserPlus,
   PackagePlus,
   X,
+  Download,
 } from "lucide-react";
 import { formatCurrency, roundMoney, toNumber } from "../services/money";
-import { calculateInvoiceTotals, buildInvoiceRecord } from "../services/invoiceService";
+import {
+  calculateInvoiceTotals,
+  calculateLine,
+  buildInvoiceRecord,
+  validateInvoiceBuild,
+} from "../services/invoiceService";
 import { todayISO } from "../services/dateService";
-import { normalizeWaNumber, buildCustomerWaMessage } from "../components/InvoiceRenderer";
+import { shareInvoiceViaWhatsApp, setInvoiceLogo as setWaLogo } from "../services/whatsappService";
+import { setInvoiceLogo as setPdfLogo } from "../services/pdfService";
+import { normalizeWaNumber } from "../components/InvoiceRenderer";
 import type {
   Product,
   Customer,
@@ -44,7 +52,7 @@ export interface BillingPageProps {
   onSaveInvoice: (invoice: Invoice) => void;
   onOpenBarcodeScanner: () => void;
   onOpenAddProduct: (initialName?: string) => void;
-  onOpenAddCustomer: () => void;
+  onOpenAddCustomer: (onCreated: (customerId: string) => void) => void;
   onCancelEdit: () => void;
 }
 
@@ -84,6 +92,9 @@ export function BillingPage({
   // Search & suggestions
   const [productSearch, setProductSearch] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
+  const [activeCustomerIndex, setActiveCustomerIndex] = useState(-1);
+  const [isCustomerPickerOpen, setIsCustomerPickerOpen] = useState(false);
+  const [customerError, setCustomerError] = useState("");
   const [error, setError] = useState("");
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -126,6 +137,37 @@ export function BillingPage({
     const customerState = selectedCustomer?.state || settings.state;
     return calculateInvoiceTotals(items, customerState, settings.state);
   }, [items, selectedCustomer, settings.state]);
+
+  // Sync logo to WhatsApp and PDF services
+  setWaLogo(settings.logo || "");
+  setPdfLogo(settings.logo || "");
+
+  const filteredCustomers = useMemo(() => {
+    const query = customerSearch.trim().toLowerCase();
+    if (!query) return customers;
+    return customers.filter((customer) =>
+      [customer.name, customer.phone, customer.state].some((value) =>
+        String(value || "").toLowerCase().includes(query),
+      ),
+    );
+  }, [customerSearch, customers]);
+
+  const selectCustomer = (customer: Customer) => {
+    setSelectedCustomerId(customer.id);
+    setCustomerSearch("");
+    setIsCustomerPickerOpen(false);
+    setActiveCustomerIndex(-1);
+    setCustomerError("");
+    setError("");
+  };
+
+  const handleCustomerCreated = (customerId: string) => {
+    setSelectedCustomerId(customerId);
+    setCustomerSearch("");
+    setIsCustomerPickerOpen(false);
+    setCustomerError("");
+    setError("");
+  };
 
   // Frequently sold products (quick pills)
   const frequentProducts = useMemo(() => {
@@ -197,23 +239,85 @@ export function BillingPage({
   const wa = normalizeWaNumber(customerPhone);
   const isWaValid = wa.waNumber.length === 12;
 
-  const handleSendWa = () => {
-    const custName = selectedCustomer?.name || "Customer";
-    const msg = buildCustomerWaMessage(
-      custName,
-      invoiceNo,
-      date,
-      calculation.grandTotal,
-      paymentStatus,
-      paymentMode,
-      settings,
-    );
+  const handleSendWa = async () => {
     if (!wa.waNumber) {
       alert("Please enter a valid 10-digit mobile number.");
       setPhoneTouched(true);
       return;
     }
-    window.open(`https://wa.me/${wa.waNumber}?text=${encodeURIComponent(msg)}`, "_blank");
+    const result = await shareInvoiceViaWhatsApp(
+      {
+        id: invoiceNo,
+        invoiceNo,
+        date,
+        customerId: selectedCustomerId,
+        customerName: selectedCustomer?.name || "Customer",
+        customerPhone: customerPhone,
+        customerGstin: "",
+        customerAddress: "",
+        customerState: selectedCustomer?.state || "",
+        items,
+        subtotal: calculation.subtotal,
+        discountTotal: calculation.discountTotal,
+        taxableAmount: calculation.taxableAmount,
+        cgst: calculation.cgst,
+        sgst: calculation.sgst,
+        igst: calculation.igst,
+        gstTotal: calculation.gstTotal,
+        roundOff: calculation.roundOff,
+        grandTotal: calculation.grandTotal,
+        paymentMode,
+        paymentStatus,
+        paidAmount: 0,
+        notes: "",
+        terms: "",
+        status: paymentStatus === "Paid" ? "Paid" : "Pending",
+      },
+      settings,
+    );
+    if (result.method === "failed") {
+      alert(result.message);
+    } else if (result.method === "download-then-wa") {
+      alert(result.message);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    const { downloadBlob, generateInvoicePdfBlob, openInvoiceForPrint } =
+      await import("../services/pdfService");
+    // Build a full invoice object from current form state
+    const inv: Invoice = {
+      id: invoiceNo,
+      invoiceNo,
+      date,
+      customerId: selectedCustomerId,
+      customerName: selectedCustomer?.name || "Customer",
+      customerPhone: customerPhone,
+      customerGstin: "",
+      customerAddress: "",
+      customerState: selectedCustomer?.state || "",
+      items,
+      subtotal: calculation.subtotal,
+      discountTotal: calculation.discountTotal,
+      taxableAmount: calculation.taxableAmount,
+      cgst: calculation.cgst,
+      sgst: calculation.sgst,
+      igst: calculation.igst,
+      gstTotal: calculation.gstTotal,
+      roundOff: calculation.roundOff,
+      grandTotal: calculation.grandTotal,
+      paymentMode,
+      paymentStatus,
+      paidAmount: 0,
+      notes: "",
+      terms: "",
+    };
+    const pdfBlob = await generateInvoicePdfBlob(inv, settings);
+    if (pdfBlob) {
+      downloadBlob(pdfBlob, `${invoiceNo}.pdf`);
+    } else {
+      openInvoiceForPrint(inv, settings);
+    }
   };
 
   // Save Invoice
@@ -223,8 +327,10 @@ export function BillingPage({
     const customerId = selectedCustomerId.trim();
     if (!customerId || !selectedCustomer || String(selectedCustomer.id) !== customerId) {
       setError("Please select a customer for this invoice.");
+      setCustomerError("Select a customer before saving.");
       return;
     }
+    setCustomerError("");
     if (items.length === 0) {
       setError("Please add at least one product to the invoice.");
       return;
@@ -247,8 +353,40 @@ export function BillingPage({
         ? paidAmount
         : parseFloat(String(paidAmount)) || 0;
 
-    setIsSaving(true);
-    const invoiceRecord = buildInvoiceRecord({
+    if (!Number.isFinite(finalPaid) || finalPaid < 0 || finalPaid > calculation.grandTotal) {
+      setError("Amount paid must be between ₹0 and the invoice total.");
+      return;
+    }
+    if (
+      paymentStatus === "Partial" &&
+      (finalPaid <= 0 || finalPaid >= calculation.grandTotal)
+    ) {
+      setError("A partial payment must be greater than ₹0 and less than the invoice total.");
+      return;
+    }
+
+    const dateParts = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const parsedDate = dateParts
+      ? new Date(
+          Date.UTC(
+            Number(dateParts[1]),
+            Number(dateParts[2]) - 1,
+            Number(dateParts[3]),
+          ),
+        )
+      : null;
+    if (
+      !dateParts ||
+      !parsedDate ||
+      parsedDate.getUTCFullYear() !== Number(dateParts[1]) ||
+      parsedDate.getUTCMonth() !== Number(dateParts[2]) - 1 ||
+      parsedDate.getUTCDate() !== Number(dateParts[3])
+    ) {
+      setError("Pick a valid invoice date.");
+      return;
+    }
+
+    const invoiceInput = {
       id: editingInvoice?.id || `inv_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       invoiceNo,
       date,
@@ -265,8 +403,16 @@ export function BillingPage({
       paidAmount: finalPaid,
       notes,
       terms,
-      status: "Saved",
-    });
+      status: "Saved" as const,
+    };
+    const validationErrors = validateInvoiceBuild(invoiceInput);
+    if (validationErrors.length) {
+      setError(validationErrors[0]);
+      return;
+    }
+
+    setIsSaving(true);
+    const invoiceRecord = buildInvoiceRecord(invoiceInput);
 
     try {
       onSaveInvoice(invoiceRecord);
@@ -330,7 +476,7 @@ export function BillingPage({
               </div>
               <button
                 type="button"
-                onClick={onOpenAddCustomer}
+                onClick={() => onOpenAddCustomer(handleCustomerCreated)}
                 className="h-8 px-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-[12px] font-semibold flex items-center gap-1.5 transition"
               >
                 <UserPlus className="h-3.5 w-3.5" /> + New Customer
@@ -342,22 +488,105 @@ export function BillingPage({
                 <label className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
                   Select Existing Customer *
                 </label>
-                <select
-                  value={selectedCustomerId}
-                  onChange={(e) => {
-                    const next = String(e.target.value);
-                    setSelectedCustomerId(next);
-                    if (next) setError("");
-                  }}
-                  className="mt-1 w-full h-11 px-3 rounded-xl border border-zinc-200 text-[13px] font-medium bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                >
-                  <option value="">Select customer</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} • {c.phone} ({c.state})
-                    </option>
-                  ))}
-                </select>
+                <div className="relative mt-1">
+                  <input
+                    type="search"
+                    role="combobox"
+                    aria-label="Search customers by name, phone, or location"
+                    aria-expanded={isCustomerPickerOpen}
+                    aria-invalid={Boolean(customerError)}
+                    aria-describedby={customerError ? "billing-customer-error" : undefined}
+                    aria-controls="billing-customer-options"
+                    aria-activedescendant={
+                      isCustomerPickerOpen && filteredCustomers[activeCustomerIndex]
+                        ? `billing-customer-${filteredCustomers[activeCustomerIndex].id}`
+                        : undefined
+                    }
+                    value={
+                      isCustomerPickerOpen
+                        ? customerSearch
+                        : selectedCustomer
+                          ? `${selectedCustomer.name} • ${selectedCustomer.phone}`
+                          : customerSearch
+                    }
+                    placeholder="Search by name or phone"
+                    onFocus={() => setIsCustomerPickerOpen(true)}
+                    onChange={(event) => {
+                      setCustomerSearch(event.target.value);
+                      setSelectedCustomerId("");
+                      setCustomerError("");
+                      setActiveCustomerIndex(-1);
+                      setIsCustomerPickerOpen(true);
+                    }}
+                    onBlur={() => setIsCustomerPickerOpen(false)}
+                    onKeyDown={(event) => {
+                      if (event.key === "ArrowDown") {
+                        event.preventDefault();
+                        setIsCustomerPickerOpen(true);
+                        setActiveCustomerIndex((index) =>
+                          Math.min(index + 1, filteredCustomers.length - 1),
+                        );
+                      } else if (event.key === "ArrowUp") {
+                        event.preventDefault();
+                        setActiveCustomerIndex((index) => Math.max(index - 1, 0));
+                      } else if (event.key === "Enter" && isCustomerPickerOpen) {
+                        event.preventDefault();
+                        const customer = filteredCustomers[activeCustomerIndex];
+                        if (customer) selectCustomer(customer);
+                      } else if (event.key === "Escape") {
+                        setIsCustomerPickerOpen(false);
+                      }
+                    }}
+                    className="w-full h-11 px-3 rounded-xl border border-zinc-200 text-[13px] font-medium bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  />
+                  {isCustomerPickerOpen && (
+                    <div
+                      id="billing-customer-options"
+                      role="listbox"
+                      className="absolute z-30 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-zinc-200 bg-white p-1 shadow-xl"
+                    >
+                      {filteredCustomers.length ? (
+                        filteredCustomers.map((customer, index) => (
+                          <button
+                            id={`billing-customer-${customer.id}`}
+                            key={customer.id}
+                            type="button"
+                            role="option"
+                            aria-selected={selectedCustomerId === customer.id}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onMouseEnter={() => setActiveCustomerIndex(index)}
+                            onClick={() => selectCustomer(customer)}
+                            className={`w-full rounded-lg px-3 py-2 text-left ${
+                              index === activeCustomerIndex
+                                ? "bg-amber-50"
+                                : "hover:bg-zinc-50"
+                            }`}
+                          >
+                            <span className="block text-sm font-semibold text-zinc-900">
+                              {customer.name}
+                            </span>
+                            <span className="block text-xs text-zinc-500">
+                              {customer.phone || "No phone"} · {customer.state || "Location not set"}
+                            </span>
+                          </button>
+                        ))
+                      ) : (
+                        <p className="px-3 py-3 text-sm text-zinc-500">
+                          No customers match this search.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {customerError && (
+                  <p
+                    id="billing-customer-error"
+                    role="alert"
+                    className="mt-1 text-xs font-medium text-red-600"
+                  >
+                    {customerError}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -412,13 +641,22 @@ export function BillingPage({
                       className="w-full h-10 pl-9 pr-3 rounded-xl border border-zinc-200 bg-white text-[13px] mono focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                     />
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleSendWa}
-                    className="h-10 px-4 rounded-xl bg-[#25D366] hover:bg-[#20ba5a] text-white text-[12px] font-semibold flex items-center justify-center gap-1.5 shrink-0 transition shadow-sm"
-                  >
-                    <Smartphone className="h-4 w-4" /> Send Bill via WhatsApp
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSendWa}
+                      className="flex-1 h-10 px-3 rounded-xl bg-[#25D366] hover:bg-[#20ba5a] text-white text-[11px] font-semibold flex items-center justify-center gap-1.5 shrink-0 transition shadow-sm"
+                    >
+                      <Smartphone className="h-3.5 w-3.5" /> Send PDF via WhatsApp
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownloadPdf}
+                      className="h-10 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-[11px] font-semibold flex items-center justify-center gap-1.5 shrink-0 transition shadow-sm"
+                    >
+                      <Download className="h-3.5 w-3.5" /> Download PDF
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -553,11 +791,8 @@ export function BillingPage({
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
                   {items.map((it, idx) => {
-                    const gross = it.price * it.qty;
-                    const disc = (gross * (it.discount || 0)) / 100;
-                    const taxable = gross - disc;
-                    const gstAmt = (taxable * it.gst) / 100;
-                    const total = taxable + gstAmt;
+                    const lineTotals = calculateLine(it, calculation.taxType);
+                    const { gross, discount: disc, taxableAmount: taxable, gstAmount: gstAmt, lineTotal: total } = lineTotals;
 
                     return (
                       <tr key={idx} className="hover:bg-zinc-50/50">
@@ -633,11 +868,8 @@ export function BillingPage({
             {/* Mobile Card List View */}
             <div className="md:hidden divide-y divide-zinc-100">
               {items.map((it, idx) => {
-                const gross = it.price * it.qty;
-                const disc = (gross * (it.discount || 0)) / 100;
-                const taxable = gross - disc;
-                const gstAmt = (taxable * it.gst) / 100;
-                const total = taxable + gstAmt;
+                const lineTotals = calculateLine(it, calculation.taxType);
+                const { gross, discount: disc, taxableAmount: taxable, gstAmount: gstAmt, lineTotal: total } = lineTotals;
 
                 return (
                   <div key={idx} className="p-3.5 space-y-2">
@@ -690,6 +922,23 @@ export function BillingPage({
                         <div className="font-extrabold mono text-[15px] text-zinc-900">
                           {formatCurrency(total)}
                         </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label htmlFor={`mobile-discount-${idx}`} className="text-xs text-zinc-500">
+                          Discount %
+                        </label>
+                        <input
+                          id={`mobile-discount-${idx}`}
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={it.discount || ""}
+                          placeholder="0"
+                          onChange={(event) =>
+                            updateItemDiscount(idx, parseFloat(event.target.value) || 0)
+                          }
+                          className="h-9 w-20 rounded-lg border border-zinc-200 px-2 text-center text-sm"
+                        />
                       </div>
                     </div>
                   </div>
