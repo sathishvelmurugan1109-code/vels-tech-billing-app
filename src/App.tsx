@@ -27,6 +27,8 @@ import {
   SlidersHorizontal,
   ChevronRight,
   MoreHorizontal,
+  Loader2,
+  LogOut,
 } from "lucide-react";
 
 // Domain Types
@@ -96,6 +98,9 @@ import { PaymentsPage } from "./pages/PaymentsPage";
 import { ExpensesPage } from "./pages/ExpensesPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import LoginPage from "./pages/LoginPage";
+import { authService } from "./services/authService";
+import { api } from "./services/apiService";
 
 // Seed fallbacks when localStorage is initially empty
 const seedProducts: Product[] = [
@@ -185,6 +190,92 @@ export type AppView =
   | "settings";
 
 export default function App() {
+  // --- Authentication State ---
+  const [authChecking, setAuthChecking] = useState(true);
+  const [authenticated, setAuthenticated] = useState(() =>
+    authService.isAuthenticated(),
+  );
+  const [dataLoaded, setDataLoaded] = useState(false);
+
+  // Restore session on mount: verify token, then load data
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = authService.getToken();
+        if (!token) {
+          if (!cancelled) {
+            setAuthenticated(false);
+            setAuthChecking(false);
+          }
+          return;
+        }
+
+        const ok = await authService.verifySession();
+        if (cancelled) return;
+        if (!ok) {
+          if (!cancelled) {
+            setAuthenticated(false);
+            setAuthChecking(false);
+          }
+          return;
+        }
+
+        if (!cancelled) {
+          setAuthenticated(true);
+          setAuthChecking(false);
+        }
+
+        // Load data from MongoDB when authenticated
+        try {
+          const [products, customers, suppliers, invoices, purchases, payments, stockMovements, expenses, settings] =
+            await Promise.all([
+              api.products.list().catch(() => []),
+              api.customers.list().catch(() => []),
+              api.suppliers.list().catch(() => []),
+              api.invoices.list().catch(() => []),
+              api.purchases.list().catch(() => []),
+              api.payments.list().catch(() => []),
+              api.stockMovements.list().catch(() => []),
+              api.expenses.list().catch(() => []),
+              api.getSettings().catch(() => null),
+            ]);
+
+          if (cancelled) return;
+
+          if (Array.isArray(products) && products.length > 0) setProducts(products as any);
+          if (Array.isArray(customers) && customers.length > 0) setCustomers(customers as any);
+          if (Array.isArray(suppliers) && suppliers.length > 0) setSuppliers(suppliers as any);
+          if (Array.isArray(invoices) && invoices.length > 0) setInvoices(invoices as any);
+          if (Array.isArray(purchases) && purchases.length > 0) setPurchases(purchases as any);
+          if (Array.isArray(payments) && payments.length > 0) setPayments(payments as any);
+          if (Array.isArray(stockMovements) && stockMovements.length > 0) setStockMovements(stockMovements as any);
+          if (Array.isArray(expenses) && expenses.length > 0) setExpenses(expenses as any);
+          if (settings && typeof settings === "object") {
+            setSettings((prev) => ({ ...prev, ...settings }));
+          }
+        } catch (err) {
+          console.error("Failed to load data from API:", err);
+        } finally {
+          if (!cancelled) setDataLoaded(true);
+        }
+      } catch (err) {
+        console.error("Session restoration failed:", err);
+        if (!cancelled) setAuthChecking(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleLogout = () => {
+    authService.logout();
+    setAuthenticated(false);
+    setAuthChecking(false);
+  };
+
   // --- Persistent State ---
   const [products, setProducts] = useState<Product[]>(() =>
     safeGetStorage(STORAGE_KEYS.PRODUCTS, seedProducts),
@@ -250,6 +341,15 @@ export default function App() {
   // Navigation View
   const [view, setView] = useState<AppView>("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileSidebarOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
 
   // Modal Controllers
@@ -288,6 +388,7 @@ export default function App() {
 
   // Billing & Invoice View / Print
   const [editingInvoiceRecord, setEditingInvoiceRecord] = useState<Invoice | null>(null);
+  const [billingInitialCustomerId, setBillingInitialCustomerId] = useState<string>("");
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
   const [shareBusy, setShareBusy] = useState(false);
 
@@ -324,6 +425,52 @@ export default function App() {
   }, []);
 
   const invoiceLogo = settings.logo || defaultLogoDataUrl || logoImg;
+
+  // --- Sync state to MongoDB (debounced) ---
+  const isMongoId = (v: any) => typeof v === "string" && /^[a-f0-9]{24}$/i.test(v);
+
+  const syncArrayToApi = async (resource: any, items: any[]) => {
+    if (!authService.isAuthenticated()) return;
+    for (const item of items) {
+      try {
+        if (isMongoId(item?.id)) {
+          await resource.update(item.id, item);
+        } else {
+          const created = await resource.create(item);
+          if (created?.id) item.id = created.id;
+        }
+      } catch (e) {
+        console.warn("Sync item failed:", e);
+      }
+    }
+  };
+
+  const syncTimer = useRef<any>(null);
+  useEffect(() => {
+    if (!dataLoaded) return;
+    if (syncTimer.current) clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(async () => {
+      try {
+        await Promise.all([
+          syncArrayToApi(api.products, products),
+          syncArrayToApi(api.customers, customers),
+          syncArrayToApi(api.suppliers, suppliers),
+          syncArrayToApi(api.invoices, invoices),
+          syncArrayToApi(api.purchases, purchases),
+          syncArrayToApi(api.payments, payments),
+          syncArrayToApi(api.stockMovements, stockMovements),
+          syncArrayToApi(api.expenses, expenses),
+        ]);
+        if (authService.isAuthenticated()) {
+          await api.updateSettings(settings).catch(() => {});
+        }
+      } catch (e) {
+        console.warn("Sync to API failed:", e);
+      }
+    }, 3000);
+    return () => { if (syncTimer.current) clearTimeout(syncTimer.current); };
+  }, [products, customers, suppliers, invoices, purchases, payments, stockMovements, expenses, settings, dataLoaded]);
+
 
   // Persist State to LocalStorage
   useEffect(() => {
@@ -761,6 +908,28 @@ export default function App() {
     return Array.from(set);
   }, [products]);
 
+  // Auth gate: restore session, show login page, or render billing app
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-[#070b16] flex items-center justify-center">
+        <div className="flex items-center gap-2 text-slate-300">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>Restoring session…</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return (
+      <LoginPage
+        onLoginSuccess={() => {
+          setAuthenticated(true);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f8fafc] text-zinc-900 font-sans selection:bg-indigo-100">
       {/* Print Stylesheet */}
@@ -838,7 +1007,7 @@ export default function App() {
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live Client
                 Ready
               </span>
-              <span className="mono text-zinc-400 text-[10px]">v2.2</span>
+              <span className="mono text-zinc-400 text-[10px]">v1.1.0</span>
             </div>
             <div className="text-[12px] text-zinc-300 mt-1 leading-snug">
               Encrypted Local Storage • Full Offline PWA
@@ -847,13 +1016,93 @@ export default function App() {
         </div>
       </div>
 
+      {/* Mobile Sidebar Drawer */}
+      {mobileSidebarOpen && (
+        <div className="no-print md:hidden fixed inset-0 z-40">
+          <button
+            type="button"
+            aria-label="Close navigation menu"
+            className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+          <aside className="absolute left-0 top-0 h-full w-[84vw] max-w-[300px] bg-white shadow-2xl flex flex-col">
+            <div className="h-[64px] flex items-center justify-between px-4 border-b border-zinc-100">
+              <div className="flex items-center gap-2.5">
+                <img src={appLogo} alt="Vels Tech Logo" className="h-8 w-8 rounded-lg object-cover" />
+                <div className="leading-tight">
+                  <div className="font-extrabold text-[14px]">VELS TECH</div>
+                  <div className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest">
+                    Billing • {settings.location || "VEPPUR"}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="Close navigation menu"
+                onClick={() => setMobileSidebarOpen(false)}
+                className="h-9 w-9 grid place-items-center rounded-xl bg-zinc-100 text-zinc-700"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <nav className="p-3 flex-1 space-y-1 overflow-y-auto">
+              {[
+                { k: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+                { k: "billing", label: "New Bill (POS)", icon: Receipt, badge: "⌘N" },
+                { k: "invoices", label: "Invoices", icon: FileText },
+                { k: "products", label: "Inventory", icon: Package },
+                { k: "customers", label: "Customers & Ledger", icon: Users },
+                { k: "suppliers", label: "Suppliers", icon: Truck },
+                { k: "purchases", label: "Purchases", icon: Receipt },
+                { k: "payments", label: "Payments", icon: CreditCard },
+                { k: "expenses", label: "Expenses", icon: DollarSign },
+                { k: "reports", label: "Reports & GST", icon: TrendingUp },
+                { k: "settings", label: "Settings", icon: SettingsIcon },
+              ].map((item) => (
+                <button
+                  key={item.k}
+                  type="button"
+                  onClick={() => {
+                    if (item.k === "billing") setEditingInvoiceRecord(null);
+                    setView(item.k as AppView);
+                    setMobileSidebarOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13px] font-semibold transition min-h-[44px] ${
+                    view === item.k
+                      ? "bg-indigo-600 text-white shadow-[0_6px_16px_-6px_rgba(79,70,229,0.7)]"
+                      : "text-zinc-600 hover:bg-zinc-100/70 hover:text-zinc-900"
+                  }`}
+                >
+                  <item.icon className="h-4 w-4" />
+                  <span>{item.label}</span>
+                  {item.badge && (
+                    <span className="ml-auto bg-white/20 text-[10px] px-1.5 py-0.5 rounded font-bold mono">
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </nav>
+
+            <div className="p-4 border-t border-zinc-100">
+              <div className="rounded-2xl bg-zinc-900 text-white p-3.5">
+                <div className="text-[12px] text-zinc-300 leading-snug">
+                  Encrypted Local Storage • Full Offline PWA
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      )}
+
       {/* Mobile Top Navigation Header */}
       <div className="no-print md:hidden sticky top-0 z-30 bg-white border-b border-zinc-200">
         <div className="flex items-center justify-between px-4 h-[60px]">
-          <div className="flex items-center gap-2.5">
-            <img src={appLogo} alt="Vels Tech Logo" className="h-8 w-8 rounded-lg object-cover" />
-            <div>
-              <div className="font-extrabold text-[15px] leading-tight">VELS TECH</div>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <img src={appLogo} alt="Vels Tech Logo" className="h-8 w-8 rounded-lg object-cover shrink-0" />
+            <div className="min-w-0">
+              <div className="font-extrabold text-[15px] leading-tight truncate">VELS TECH</div>
               <div className="text-[10px] text-zinc-400 font-semibold uppercase">
                 BILLING • {settings.location || "VEPPUR"}
               </div>
@@ -861,6 +1110,14 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="Open navigation menu"
+              onClick={() => setMobileSidebarOpen(true)}
+              className="h-10 w-10 grid place-items-center rounded-xl bg-zinc-100 text-zinc-700"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
             <button
               onClick={() => setShowGlobalSearchModal(true)}
               className="h-9 w-9 grid place-items-center rounded-xl bg-zinc-100 text-zinc-600"
@@ -878,9 +1135,9 @@ export default function App() {
             </button>
             <button
               onClick={() => setShowQuickActionsModal(true)}
-              className="h-9 px-3 rounded-xl bg-indigo-600 text-white font-bold text-[12px] flex items-center gap-1"
+              className="h-9 px-2 sm:px-3 rounded-xl bg-indigo-600 text-white font-bold text-[12px] flex items-center gap-1 shrink-0"
             >
-              ⚡ Actions
+              ⚡ <span className="hidden sm:inline">Actions</span>
             </button>
           </div>
         </div>
@@ -956,6 +1213,12 @@ export default function App() {
                   <Plus className="h-4 w-4" /> New Bill
                 </button>
               )}
+              <button
+                onClick={handleLogout}
+                className="h-10 rounded-xl border border-red-100 bg-red-50 text-red-800 px-3 text-xs font-bold hover:bg-red-100 transition-colors"
+              >
+                <LogOut className="h-4 w-4 mr-1.5" /> Sign out
+              </button>
             </div>
           </div>
 
@@ -989,6 +1252,8 @@ export default function App() {
               invoices={invoices}
               settings={settings}
               editingInvoice={editingInvoiceRecord}
+               initialCustomerId={billingInitialCustomerId}
+              onInitialCustomerConsumed={() => setBillingInitialCustomerId("")}
               onSaveInvoice={handleSaveInvoice}
               onOpenBarcodeScanner={() => setShowBarcodeScannerModal(true)}
               onOpenAddProduct={(name) => {
@@ -1076,6 +1341,7 @@ export default function App() {
                 setShowCustomerLedgerModal(true);
               }}
               onNewInvoiceForCustomer={(c) => {
+                setBillingInitialCustomerId(c.id);
                 setEditingInvoiceRecord(null);
                 setView("billing");
               }}
@@ -1176,7 +1442,7 @@ export default function App() {
       </div>
 
       {/* Mobile Bottom Navigation Bar (Phase 24) */}
-      <div className="no-print md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-zinc-200">
+      <div className="no-print md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-zinc-200 pb-[env(safe-area-inset-bottom)]">
         <div className="grid grid-cols-5 h-[64px] items-center px-1">
           {[
             { k: "dashboard", label: "Home", icon: LayoutDashboard },
@@ -1509,6 +1775,7 @@ export default function App() {
           settings={settings}
           onNewInvoice={(c) => {
             setShowCustomerLedgerModal(false);
+            setBillingInitialCustomerId(c.id);
             setEditingInvoiceRecord(null);
             setView("billing");
           }}

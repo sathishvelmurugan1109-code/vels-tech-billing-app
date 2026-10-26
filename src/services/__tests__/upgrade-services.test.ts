@@ -12,7 +12,7 @@ import {
   summarizeSuppliers,
   generateSupplierLedger,
 } from "../supplierService";
-import type { Expense, Supplier, Purchase, Payment } from "../../types";
+import type { Expense, Supplier, Purchase, Payment, CompanySettings } from "../../types";
 
 describe("qrService — UPI string & SVG builder", () => {
   it("builds compliant UPI pay URLs", () => {
@@ -63,7 +63,6 @@ describe("expenseService — operating expenses and net profit", () => {
       amount: 12000,
       paymentMethod: "UPI",
       reference: "RENT-OCT",
-      createdAt: "2026-10-01T10:00:00.000Z",
     },
     {
       id: "exp-2",
@@ -72,7 +71,6 @@ describe("expenseService — operating expenses and net profit", () => {
       description: "TNEB power bill",
       amount: 2500,
       paymentMethod: "Cash",
-      createdAt: "2026-10-02T11:00:00.000Z",
     },
     {
       id: "exp-3",
@@ -80,8 +78,7 @@ describe("expenseService — operating expenses and net profit", () => {
       category: "Salary",
       description: "Assistant technician salary",
       amount: 15000,
-      paymentMethod: "Bank Transfer",
-      createdAt: "2026-10-02T12:00:00.000Z",
+      paymentMethod: "Card",
     },
   ];
 
@@ -126,7 +123,6 @@ describe("supplierService — supplier transactions & statement ledger", () => {
     address: "Veppur",
     state: "Tamil Nadu",
     openingBalance: 5000,
-    createdAt: "2026-09-01T00:00:00.000Z",
   };
 
   const purchases: Purchase[] = [
@@ -141,24 +137,25 @@ describe("supplierService — supplier transactions & statement ledger", () => {
         {
           productId: "prod-1",
           name: "Thermal Paper Roll",
-          quantity: 10,
+          hsn: "4818",
           purchasePrice: 100,
-          gstRate: 18,
-          taxableAmount: 1000,
-          gstAmount: 180,
-          totalAmount: 1180,
+          qty: 10,
+          discount: 0,
+          gst: 18,
+          unit: "pcs",
         },
       ],
       subtotal: 1000,
-      discountAmount: 0,
+      discountTotal: 0,
       taxableAmount: 1000,
-      totalGst: 180,
+      cgst: 90,
+      sgst: 90,
+      igst: 0,
+      gstTotal: 180,
       grandTotal: 1180,
       paidAmount: 1000,
-      balanceAmount: 180,
       paymentMode: "UPI",
-      status: "Received",
-      createdAt: "2026-10-01T10:00:00.000Z",
+      paymentStatus: "Partial",
     },
   ];
 
@@ -171,10 +168,9 @@ describe("supplierService — supplier transactions & statement ledger", () => {
       partyName: "Sri Lakshmi Traders",
       amount: 180,
       date: "2026-10-02",
-      paymentMethod: "Cash",
+       paymentMode: "Cash",
       reference: "CASH-180",
       notes: "Settled balance for PUR-101",
-      createdAt: "2026-10-02T14:00:00.000Z",
     },
   ];
 
@@ -238,8 +234,19 @@ describe("storageService — transactional storage & backup validation", () => {
       salesReturns: [],
       expenses: [],
       settings: {
-        companyName: "VELS TECH",
-      },
+         companyName: "VELS TECH",
+         address: "",
+         gstin: "",
+         phone: "",
+         email: "",
+         state: "",
+         invoiceTerms: "",
+         logoText: "",
+         logo: "",
+         upiId: "",
+         upiName: "",
+         upiQr: "",
+       } as CompanySettings,
     });
 
     assert.equal(backup.version, 2);
@@ -278,12 +285,24 @@ describe("storageService — transactional storage & backup validation", () => {
       salesReturns: [],
       expenses: [],
       settings: {
-        companyName: "VELS TECH",
-      },
+         companyName: "VELS TECH",
+         address: "",
+         gstin: "",
+         phone: "",
+         email: "",
+         state: "",
+         invoiceTerms: "",
+         logoText: "",
+         logo: "",
+         upiId: "",
+         upiName: "",
+         upiQr: "",
+       } as CompanySettings,
     });
 
     const res = downloadBackupFile(backup);
     assert.equal(res.ok, true);
   });
 });
+
 

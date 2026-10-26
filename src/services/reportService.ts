@@ -222,6 +222,10 @@ export type SalesSummary = {
   itemCount: number;
   /** Average invoice value (totalSales / invoiceCount). */
   averageInvoiceValue: number;
+  /** UI-friendly aliases (kept in sync with the canonical fields above). */
+  grossTotal: number;
+  taxableAmount: number;
+  grandTotal: number;
 };
 
 export type SalesSummaryOptions = {
@@ -271,6 +275,10 @@ export function summarizeSales<T extends AnyInvoice>(
     totalQuantity: active.reduce((s, r) => s + toNumber(r.calc.totalQuantity), 0),
     itemCount: active.reduce((s, r) => s + r.calc.itemCount, 0),
     averageInvoiceValue: invoiceCount === 0 ? 0 : roundMoney(totalSales / invoiceCount),
+    /** UI-friendly aliases (kept in sync with the canonical fields above). */
+    grossTotal: sumMoney(active.map((r) => r.calc.subtotal)),
+    taxableAmount: sumMoney(active.map((r) => r.calc.taxableAmount)),
+    grandTotal: totalSales,
   };
 }
 
@@ -585,6 +593,10 @@ export type ProductReportRow = {
   profitMargin: number;
   hasCostData: boolean;
   invoiceCount: number;
+  /** UI-friendly aliases (kept in sync with the canonical fields above). */
+  cost: number;
+  profit: number;
+  marginPct: number;
 };
 
 export type ProductReport = {
@@ -652,6 +664,9 @@ export function productReport<T extends AnyInvoice>(
           hasCostData: costs.has(line.productId),
           invoiceCount: 0,
           _invoices: new Set<string>(),
+          cost: 0,
+          profit: 0,
+          marginPct: 0,
         };
         map.set(key, row);
       }
@@ -676,7 +691,14 @@ export function productReport<T extends AnyInvoice>(
   const list: ProductReportRow[] = [...map.values()]
     .map((row) => {
       const { _invoices, ...rest } = row;
-      return { ...rest, invoiceCount: _invoices.size, profitMargin: margin(row.grossProfit, row.revenue) };
+      return {
+        ...rest,
+        invoiceCount: _invoices.size,
+        profitMargin: margin(row.grossProfit, row.revenue),
+        cost: row.costAmount,
+        profit: row.grossProfit,
+        marginPct: margin(row.grossProfit, row.revenue),
+      };
     })
     .sort((a, b) => b.revenue - a.revenue);
 
@@ -700,13 +722,14 @@ export function productReport<T extends AnyInvoice>(
  * CUSTOMER REPORT (PHASES 8/16)
  * ------------------------------------------------------------------ */
 
-export type CustomerLike = { id?: unknown; name?: unknown; phone?: unknown; state?: unknown };
+export type CustomerLike = { id?: unknown; name?: unknown; phone?: unknown; state?: unknown; gstin?: unknown };
 
 export type CustomerReportRow = {
   customerId: string;
   name: string;
   phone: string;
   state: string;
+  gstin: string;
   invoiceCount: number;
   totalSales: number;
   paidAmount: number;
@@ -714,6 +737,10 @@ export type CustomerReportRow = {
   /** Transaction-based outstanding (invoice balances − standalone receipts). */
   outstanding: number;
   lastInvoiceDate: string;
+  /** UI-friendly aliases (kept in sync with the canonical fields above). */
+  id: string;
+  totalPurchases: number;
+  totalPaid: number;
 };
 
 export type CustomerReport = {
@@ -759,12 +786,16 @@ export function customerReport<T extends AnyInvoice>(
         name: String(c?.name ?? ""),
         phone: String(c?.phone ?? ""),
         state: String(c?.state ?? ""),
+        gstin: String(c?.gstin ?? ""),
         invoiceCount: mine.length,
         totalSales: sumMoney(mine.map((r) => r.calc.grandTotal)),
         paidAmount,
         balance: sumMoney(mine.map((r) => r.calc.balance)),
         outstanding: customerOutstanding(id, allInvoices, payments),
         lastInvoiceDate: lastDate,
+        id,
+        totalPurchases: sumMoney(mine.map((r) => r.calc.grandTotal)),
+        totalPaid: paidAmount,
       };
     })
     .sort((a, b) => b.totalSales - a.totalSales);
@@ -796,6 +827,10 @@ export type StockLikeProduct = {
 };
 
 export type StockReport = {
+  totalProducts: number;
+  totalUnits: number;
+  stockValueSelling: number;
+  stockValueCost: number;
   summary: ReturnType<typeof stockSummary<StockLike>>;
   lowStockRows: Array<{ id: string; name: string; stock: number; unit: string; minStock: number }>;
   movementRows: Array<{ productId: string; soldQuantity: number; invoiceCount: number }>;
@@ -837,6 +872,10 @@ export function stockReport<T extends AnyInvoice>(
     });
 
   return {
+    totalProducts: summary.totalProducts,
+    totalUnits: summary.totalUnits,
+    stockValueSelling: summary.stockValueSelling,
+    stockValueCost: summary.stockValueCost,
     summary,
     lowStockRows: details.filter((d) => d.stock <= d.minStock),
     movementRows: [...sold.entries()].map(([productId, soldQuantity]) => ({
@@ -919,6 +958,10 @@ export type ProfitReport = {
     grossProfit: number;
     profitMargin: number;
   }>;
+  /** UI-friendly aliases (kept in sync with the canonical fields above). */
+  cost: number;
+  marginPct: number;
+  rows: ProductReportRow[];
 };
 
 export function profitReport<T extends AnyInvoice>(
@@ -961,6 +1004,10 @@ export function profitReport<T extends AnyInvoice>(
     profitMargin: report.profitMargin,
     hasCostData: report.hasCostData,
     byInvoice,
+    /** UI-friendly aliases (kept in sync with the canonical fields above). */
+    cost: report.costAmount,
+    marginPct: report.profitMargin,
+    rows: report.rows,
   };
 }
 

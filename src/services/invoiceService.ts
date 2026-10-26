@@ -357,7 +357,7 @@ export type InvoiceBuildInput = {
 /** Friendly, blocking issues that must stop an invoice from being saved. */
 export function validateInvoiceBuild(input: InvoiceBuildInput): string[] {
   const errors: string[] = [];
-  if (!input.customerId) errors.push("Select a customer.");
+  if (!String(input.customerId ?? "").trim()) errors.push("Select a customer.");
   if (!input.items || input.items.length === 0) errors.push("Add at least one product.");
   if (!input.date || !/^\d{4}-\d{2}-\d{2}/.test(String(input.date))) errors.push("Pick a valid invoice date.");
   (input.items || []).forEach((it, i) => {

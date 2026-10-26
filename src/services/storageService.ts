@@ -239,7 +239,7 @@ export function validateAndRestoreBackup(
         : [],
       salesReturns: Array.isArray(payload.salesReturns) ? (payload.salesReturns as SalesReturn[]) : [],
       expenses: Array.isArray(payload.expenses) ? (payload.expenses as Expense[]) : [],
-      settings: (payload.settings as CompanySettings) || {},
+      settings: (payload.settings as CompanySettings) || ({} as CompanySettings),
     };
 
     // Attempt transactional persistence

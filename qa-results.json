@@ -1,0 +1,1965 @@
+{
+  "results": [
+    {
+      "width": 320,
+      "views": [
+        {
+          "view": "dashboard",
+          "clicked": true,
+          "innerWidth": 470,
+          "scrollWidth": 470,
+          "clientWidth": 320,
+          "hasHorizontalScroll": true,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "billing",
+          "clicked": true,
+          "innerWidth": 320,
+          "scrollWidth": 320,
+          "clientWidth": 320,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "invoices",
+          "clicked": true,
+          "innerWidth": 320,
+          "scrollWidth": 320,
+          "clientWidth": 320,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "products",
+          "clicked": true,
+          "innerWidth": 357,
+          "scrollWidth": 357,
+          "clientWidth": 320,
+          "hasHorizontalScroll": true,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "customers",
+          "clicked": true,
+          "innerWidth": 320,
+          "scrollWidth": 320,
+          "clientWidth": 320,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "suppliers",
+          "clicked": true,
+          "innerWidth": 320,
+          "scrollWidth": 320,
+          "clientWidth": 320,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "payments",
+          "clicked": true,
+          "innerWidth": 320,
+          "scrollWidth": 320,
+          "clientWidth": 320,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "reports",
+          "clicked": true,
+          "innerWidth": 320,
+          "scrollWidth": 320,
+          "clientWidth": 320,
+          "hasHorizontalScroll": false,
+          "offenderCount": 53,
+          "topOffenders": [
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 shrin",
+              "left": 1339,
+              "right": 1476,
+              "width": 136
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 1354,
+              "right": 1368,
+              "width": 14
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1357,
+              "right": 1366,
+              "width": 9
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1359,
+              "right": 1364,
+              "width": 5
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1359,
+              "right": 1360,
+              "width": 1
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 shrin",
+              "left": 1211,
+              "right": 1333,
+              "width": 122
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 1226,
+              "right": 1240,
+              "width": 14
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1228,
+              "right": 1238,
+              "width": 11
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1228,
+              "right": 1231,
+              "width": 3
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 shrin",
+              "left": 1047,
+              "right": 1205,
+              "width": 158
+            }
+          ]
+        },
+        {
+          "view": "settings",
+          "clicked": true,
+          "innerWidth": 320,
+          "scrollWidth": 320,
+          "clientWidth": 320,
+          "hasHorizontalScroll": false,
+          "offenderCount": 15,
+          "topOffenders": [
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12.5px] font-semibold flex items-center gap-1.5 shr",
+              "left": 622,
+              "right": 794,
+              "width": 172
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 636,
+              "right": 652,
+              "width": 16
+            },
+            {
+              "tag": "ellipse",
+              "cls": "",
+              "left": 638,
+              "right": 650,
+              "width": 12
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 638,
+              "right": 650,
+              "width": 12
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12.5px] font-semibold flex items-center gap-1.5 shr",
+              "left": 509,
+              "right": 616,
+              "width": 107
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 523,
+              "right": 539,
+              "width": 16
+            },
+            {
+              "tag": "circle",
+              "cls": "",
+              "left": 533,
+              "right": 537,
+              "width": 3
+            },
+            {
+              "tag": "line",
+              "cls": "",
+              "left": 527,
+              "right": 536,
+              "width": 9
+            },
+            {
+              "tag": "circle",
+              "cls": "",
+              "left": 526,
+              "right": 529,
+              "width": 3
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12.5px] font-semibold flex items-center gap-1.5 shr",
+              "left": 348,
+              "right": 503,
+              "width": 156
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 362,
+              "right": 378,
+              "width": 16
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "width": 375,
+      "views": [
+        {
+          "view": "dashboard",
+          "clicked": true,
+          "innerWidth": 470,
+          "scrollWidth": 470,
+          "clientWidth": 375,
+          "hasHorizontalScroll": true,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "billing",
+          "clicked": true,
+          "innerWidth": 375,
+          "scrollWidth": 375,
+          "clientWidth": 375,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "invoices",
+          "clicked": true,
+          "innerWidth": 375,
+          "scrollWidth": 375,
+          "clientWidth": 375,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "products",
+          "clicked": true,
+          "innerWidth": 375,
+          "scrollWidth": 375,
+          "clientWidth": 375,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "customers",
+          "clicked": true,
+          "innerWidth": 375,
+          "scrollWidth": 375,
+          "clientWidth": 375,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "suppliers",
+          "clicked": true,
+          "innerWidth": 375,
+          "scrollWidth": 375,
+          "clientWidth": 375,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "payments",
+          "clicked": true,
+          "innerWidth": 375,
+          "scrollWidth": 375,
+          "clientWidth": 375,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "reports",
+          "clicked": true,
+          "innerWidth": 375,
+          "scrollWidth": 375,
+          "clientWidth": 375,
+          "hasHorizontalScroll": false,
+          "offenderCount": 48,
+          "topOffenders": [
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 shrin",
+              "left": 1339,
+              "right": 1476,
+              "width": 136
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 1354,
+              "right": 1368,
+              "width": 14
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1357,
+              "right": 1366,
+              "width": 9
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1359,
+              "right": 1364,
+              "width": 5
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1359,
+              "right": 1360,
+              "width": 1
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 shrin",
+              "left": 1211,
+              "right": 1333,
+              "width": 122
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 1226,
+              "right": 1240,
+              "width": 14
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1228,
+              "right": 1238,
+              "width": 11
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1228,
+              "right": 1231,
+              "width": 3
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 shrin",
+              "left": 1047,
+              "right": 1205,
+              "width": 158
+            }
+          ]
+        },
+        {
+          "view": "settings",
+          "clicked": true,
+          "innerWidth": 375,
+          "scrollWidth": 375,
+          "clientWidth": 375,
+          "hasHorizontalScroll": false,
+          "offenderCount": 14,
+          "topOffenders": [
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12.5px] font-semibold flex items-center gap-1.5 shr",
+              "left": 622,
+              "right": 794,
+              "width": 172
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 636,
+              "right": 652,
+              "width": 16
+            },
+            {
+              "tag": "ellipse",
+              "cls": "",
+              "left": 638,
+              "right": 650,
+              "width": 12
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 638,
+              "right": 650,
+              "width": 12
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12.5px] font-semibold flex items-center gap-1.5 shr",
+              "left": 509,
+              "right": 616,
+              "width": 107
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 523,
+              "right": 539,
+              "width": 16
+            },
+            {
+              "tag": "circle",
+              "cls": "",
+              "left": 533,
+              "right": 537,
+              "width": 3
+            },
+            {
+              "tag": "line",
+              "cls": "",
+              "left": 527,
+              "right": 536,
+              "width": 9
+            },
+            {
+              "tag": "circle",
+              "cls": "",
+              "left": 526,
+              "right": 529,
+              "width": 3
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12.5px] font-semibold flex items-center gap-1.5 shr",
+              "left": 348,
+              "right": 503,
+              "width": 156
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 362,
+              "right": 378,
+              "width": 16
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "width": 390,
+      "views": [
+        {
+          "view": "dashboard",
+          "clicked": true,
+          "innerWidth": 470,
+          "scrollWidth": 470,
+          "clientWidth": 390,
+          "hasHorizontalScroll": true,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "billing",
+          "clicked": true,
+          "innerWidth": 390,
+          "scrollWidth": 390,
+          "clientWidth": 390,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "invoices",
+          "clicked": true,
+          "innerWidth": 390,
+          "scrollWidth": 390,
+          "clientWidth": 390,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "products",
+          "clicked": true,
+          "innerWidth": 390,
+          "scrollWidth": 390,
+          "clientWidth": 390,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "customers",
+          "clicked": true,
+          "innerWidth": 390,
+          "scrollWidth": 390,
+          "clientWidth": 390,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "suppliers",
+          "clicked": true,
+          "innerWidth": 390,
+          "scrollWidth": 390,
+          "clientWidth": 390,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "payments",
+          "clicked": true,
+          "innerWidth": 390,
+          "scrollWidth": 390,
+          "clientWidth": 390,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "reports",
+          "clicked": true,
+          "innerWidth": 390,
+          "scrollWidth": 390,
+          "clientWidth": 390,
+          "hasHorizontalScroll": false,
+          "offenderCount": 48,
+          "topOffenders": [
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 shrin",
+              "left": 1339,
+              "right": 1476,
+              "width": 136
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 1354,
+              "right": 1368,
+              "width": 14
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1357,
+              "right": 1366,
+              "width": 9
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1359,
+              "right": 1364,
+              "width": 5
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1359,
+              "right": 1360,
+              "width": 1
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 shrin",
+              "left": 1211,
+              "right": 1333,
+              "width": 122
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 1226,
+              "right": 1240,
+              "width": 14
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1228,
+              "right": 1238,
+              "width": 11
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1228,
+              "right": 1231,
+              "width": 3
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 shrin",
+              "left": 1047,
+              "right": 1205,
+              "width": 158
+            }
+          ]
+        },
+        {
+          "view": "settings",
+          "clicked": true,
+          "innerWidth": 390,
+          "scrollWidth": 390,
+          "clientWidth": 390,
+          "hasHorizontalScroll": false,
+          "offenderCount": 11,
+          "topOffenders": [
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12.5px] font-semibold flex items-center gap-1.5 shr",
+              "left": 622,
+              "right": 794,
+              "width": 172
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 636,
+              "right": 652,
+              "width": 16
+            },
+            {
+              "tag": "ellipse",
+              "cls": "",
+              "left": 638,
+              "right": 650,
+              "width": 12
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 638,
+              "right": 650,
+              "width": 12
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12.5px] font-semibold flex items-center gap-1.5 shr",
+              "left": 509,
+              "right": 616,
+              "width": 107
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 523,
+              "right": 539,
+              "width": 16
+            },
+            {
+              "tag": "circle",
+              "cls": "",
+              "left": 533,
+              "right": 537,
+              "width": 3
+            },
+            {
+              "tag": "line",
+              "cls": "",
+              "left": 527,
+              "right": 536,
+              "width": 9
+            },
+            {
+              "tag": "circle",
+              "cls": "",
+              "left": 526,
+              "right": 529,
+              "width": 3
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12.5px] font-semibold flex items-center gap-1.5 shr",
+              "left": 348,
+              "right": 503,
+              "width": 156
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "width": 430,
+      "views": [
+        {
+          "view": "dashboard",
+          "clicked": true,
+          "innerWidth": 471,
+          "scrollWidth": 471,
+          "clientWidth": 430,
+          "hasHorizontalScroll": true,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "billing",
+          "clicked": true,
+          "innerWidth": 430,
+          "scrollWidth": 430,
+          "clientWidth": 430,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "invoices",
+          "clicked": true,
+          "innerWidth": 430,
+          "scrollWidth": 430,
+          "clientWidth": 430,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "products",
+          "clicked": true,
+          "innerWidth": 430,
+          "scrollWidth": 430,
+          "clientWidth": 430,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "customers",
+          "clicked": true,
+          "innerWidth": 430,
+          "scrollWidth": 430,
+          "clientWidth": 430,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "suppliers",
+          "clicked": true,
+          "innerWidth": 430,
+          "scrollWidth": 430,
+          "clientWidth": 430,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "payments",
+          "clicked": true,
+          "innerWidth": 430,
+          "scrollWidth": 430,
+          "clientWidth": 430,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "reports",
+          "clicked": true,
+          "innerWidth": 430,
+          "scrollWidth": 430,
+          "clientWidth": 430,
+          "hasHorizontalScroll": false,
+          "offenderCount": 47,
+          "topOffenders": [
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 shrin",
+              "left": 1339,
+              "right": 1476,
+              "width": 136
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 1354,
+              "right": 1368,
+              "width": 14
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1357,
+              "right": 1366,
+              "width": 9
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1359,
+              "right": 1364,
+              "width": 5
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1359,
+              "right": 1360,
+              "width": 1
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 shrin",
+              "left": 1211,
+              "right": 1333,
+              "width": 122
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 1226,
+              "right": 1240,
+              "width": 14
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1228,
+              "right": 1238,
+              "width": 11
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1228,
+              "right": 1231,
+              "width": 3
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 shrin",
+              "left": 1047,
+              "right": 1205,
+              "width": 158
+            }
+          ]
+        },
+        {
+          "view": "settings",
+          "clicked": true,
+          "innerWidth": 430,
+          "scrollWidth": 430,
+          "clientWidth": 430,
+          "hasHorizontalScroll": false,
+          "offenderCount": 11,
+          "topOffenders": [
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12.5px] font-semibold flex items-center gap-1.5 shr",
+              "left": 622,
+              "right": 794,
+              "width": 172
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 636,
+              "right": 652,
+              "width": 16
+            },
+            {
+              "tag": "ellipse",
+              "cls": "",
+              "left": 638,
+              "right": 650,
+              "width": 12
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 638,
+              "right": 650,
+              "width": 12
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12.5px] font-semibold flex items-center gap-1.5 shr",
+              "left": 509,
+              "right": 616,
+              "width": 107
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 523,
+              "right": 539,
+              "width": 16
+            },
+            {
+              "tag": "circle",
+              "cls": "",
+              "left": 533,
+              "right": 537,
+              "width": 3
+            },
+            {
+              "tag": "line",
+              "cls": "",
+              "left": 527,
+              "right": 536,
+              "width": 9
+            },
+            {
+              "tag": "circle",
+              "cls": "",
+              "left": 526,
+              "right": 529,
+              "width": 3
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12.5px] font-semibold flex items-center gap-1.5 shr",
+              "left": 348,
+              "right": 503,
+              "width": 156
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "width": 768,
+      "views": [
+        {
+          "view": "dashboard",
+          "clicked": true,
+          "innerWidth": 768,
+          "scrollWidth": 822,
+          "clientWidth": 753,
+          "hasHorizontalScroll": true,
+          "offenderCount": 2,
+          "topOffenders": [
+            {
+              "tag": "div",
+              "cls": "flex items-center gap-2.5",
+              "left": 592,
+              "right": 822,
+              "width": 230
+            },
+            {
+              "tag": "button",
+              "cls": "h-10 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text",
+              "left": 730,
+              "right": 822,
+              "width": 92
+            }
+          ]
+        },
+        {
+          "view": "billing",
+          "clicked": true,
+          "innerWidth": 768,
+          "scrollWidth": 753,
+          "clientWidth": 753,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "invoices",
+          "clicked": true,
+          "innerWidth": 768,
+          "scrollWidth": 822,
+          "clientWidth": 768,
+          "hasHorizontalScroll": true,
+          "offenderCount": 7,
+          "topOffenders": [
+            {
+              "tag": "div",
+              "cls": "flex items-center gap-2.5",
+              "left": 592,
+              "right": 822,
+              "width": 230
+            },
+            {
+              "tag": "button",
+              "cls": "h-10 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text",
+              "left": 730,
+              "right": 822,
+              "width": 92
+            },
+            {
+              "tag": "table",
+              "cls": "w-full text-[13px]",
+              "left": 289,
+              "right": 785,
+              "width": 496
+            },
+            {
+              "tag": "thead",
+              "cls": "bg-zinc-50 text-[11px] font-bold text-zinc-500 uppercase tracking-wider",
+              "left": 289,
+              "right": 785,
+              "width": 496
+            },
+            {
+              "tag": "tr",
+              "cls": "",
+              "left": 289,
+              "right": 785,
+              "width": 496
+            },
+            {
+              "tag": "th",
+              "cls": "px-5 py-3.5 text-right",
+              "left": 693,
+              "right": 785,
+              "width": 91
+            },
+            {
+              "tag": "tbody",
+              "cls": "divide-y divide-zinc-100",
+              "left": 289,
+              "right": 785,
+              "width": 496
+            }
+          ]
+        },
+        {
+          "view": "products",
+          "clicked": true,
+          "innerWidth": 768,
+          "scrollWidth": 822,
+          "clientWidth": 753,
+          "hasHorizontalScroll": true,
+          "offenderCount": 155,
+          "topOffenders": [
+            {
+              "tag": "table",
+              "cls": "w-full text-[13px]",
+              "left": 289,
+              "right": 1049,
+              "width": 760
+            },
+            {
+              "tag": "thead",
+              "cls": "bg-zinc-50 text-[11px] font-bold text-zinc-500 uppercase tracking-wider",
+              "left": 289,
+              "right": 1049,
+              "width": 760
+            },
+            {
+              "tag": "tr",
+              "cls": "",
+              "left": 289,
+              "right": 1049,
+              "width": 760
+            },
+            {
+              "tag": "th",
+              "cls": "px-5 py-3.5 text-right",
+              "left": 864,
+              "right": 1049,
+              "width": 185
+            },
+            {
+              "tag": "tbody",
+              "cls": "divide-y divide-zinc-100",
+              "left": 289,
+              "right": 1049,
+              "width": 760
+            },
+            {
+              "tag": "tr",
+              "cls": "hover:bg-zinc-50/50 transition",
+              "left": 289,
+              "right": 1049,
+              "width": 760
+            },
+            {
+              "tag": "td",
+              "cls": "px-5 py-3.5 text-right",
+              "left": 864,
+              "right": 1049,
+              "width": 185
+            }
+          ]
+        },
+        {
+          "view": "customers",
+          "clicked": true,
+          "innerWidth": 768,
+          "scrollWidth": 822,
+          "clientWidth": 768,
+          "hasHorizontalScroll": true,
+          "offenderCount": 82,
+          "topOffenders": [
+            {
+              "tag": "table",
+              "cls": "w-full text-[13px]",
+              "left": 289,
+              "right": 1098,
+              "width": 809
+            },
+            {
+              "tag": "thead",
+              "cls": "bg-zinc-50 text-[11px] font-bold text-zinc-500 uppercase tracking-wider",
+              "left": 289,
+              "right": 1098,
+              "width": 809
+            },
+            {
+              "tag": "tr",
+              "cls": "",
+              "left": 289,
+              "right": 1098,
+              "width": 809
+            },
+            {
+              "tag": "th",
+              "cls": "px-5 py-3.5 text-right",
+              "left": 793,
+              "right": 1098,
+              "width": 306
+            },
+            {
+              "tag": "tbody",
+              "cls": "divide-y divide-zinc-100",
+              "left": 289,
+              "right": 1098,
+              "width": 809
+            },
+            {
+              "tag": "tr",
+              "cls": "hover:bg-zinc-50/50 transition",
+              "left": 289,
+              "right": 1098,
+              "width": 809
+            },
+            {
+              "tag": "td",
+              "cls": "px-5 py-3.5 text-right",
+              "left": 793,
+              "right": 1098,
+              "width": 306
+            },
+            {
+              "tag": "div",
+              "cls": "inline-flex items-center gap-1.5",
+              "left": 813,
+              "right": 1078,
+              "width": 266
+            },
+            {
+              "tag": "button",
+              "cls": "h-8 w-8 rounded-lg border border-zinc-200 hover:bg-red-50 hover:border-red-200 h",
+              "left": 1046,
+              "right": 1078,
+              "width": 32
+            }
+          ]
+        },
+        {
+          "view": "suppliers",
+          "clicked": true,
+          "innerWidth": 768,
+          "scrollWidth": 822,
+          "clientWidth": 768,
+          "hasHorizontalScroll": true,
+          "offenderCount": 45,
+          "topOffenders": [
+            {
+              "tag": "table",
+              "cls": "w-full text-[13px]",
+              "left": 289,
+              "right": 954,
+              "width": 665
+            },
+            {
+              "tag": "thead",
+              "cls": "bg-zinc-50 text-[11px] font-bold text-zinc-500 uppercase tracking-wider",
+              "left": 289,
+              "right": 954,
+              "width": 665
+            },
+            {
+              "tag": "tr",
+              "cls": "",
+              "left": 289,
+              "right": 954,
+              "width": 665
+            },
+            {
+              "tag": "th",
+              "cls": "px-5 py-3.5 text-right",
+              "left": 762,
+              "right": 954,
+              "width": 191
+            },
+            {
+              "tag": "tbody",
+              "cls": "divide-y divide-zinc-100",
+              "left": 289,
+              "right": 954,
+              "width": 665
+            },
+            {
+              "tag": "tr",
+              "cls": "hover:bg-zinc-50/50 transition",
+              "left": 289,
+              "right": 954,
+              "width": 665
+            },
+            {
+              "tag": "td",
+              "cls": "px-5 py-3.5 text-right",
+              "left": 762,
+              "right": 954,
+              "width": 191
+            },
+            {
+              "tag": "div",
+              "cls": "inline-flex items-center gap-1.5",
+              "left": 782,
+              "right": 934,
+              "width": 151
+            },
+            {
+              "tag": "button",
+              "cls": "h-8 w-8 rounded-lg border border-zinc-200 hover:bg-red-50 hover:border-red-200 h",
+              "left": 904,
+              "right": 934,
+              "width": 29
+            }
+          ]
+        },
+        {
+          "view": "payments",
+          "clicked": true,
+          "innerWidth": 768,
+          "scrollWidth": 822,
+          "clientWidth": 768,
+          "hasHorizontalScroll": true,
+          "offenderCount": 8,
+          "topOffenders": [
+            {
+              "tag": "table",
+              "cls": "w-full text-[13px]",
+              "left": 289,
+              "right": 870,
+              "width": 581
+            },
+            {
+              "tag": "thead",
+              "cls": "bg-zinc-50 text-[11px] font-bold text-zinc-500 uppercase tracking-wider",
+              "left": 289,
+              "right": 870,
+              "width": 581
+            },
+            {
+              "tag": "tr",
+              "cls": "",
+              "left": 289,
+              "right": 870,
+              "width": 581
+            },
+            {
+              "tag": "th",
+              "cls": "px-5 py-3.5 text-right",
+              "left": 775,
+              "right": 870,
+              "width": 95
+            },
+            {
+              "tag": "tbody",
+              "cls": "divide-y divide-zinc-100",
+              "left": 289,
+              "right": 870,
+              "width": 581
+            },
+            {
+              "tag": "div",
+              "cls": "flex items-center gap-2.5",
+              "left": 592,
+              "right": 822,
+              "width": 230
+            },
+            {
+              "tag": "button",
+              "cls": "h-10 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text",
+              "left": 730,
+              "right": 822,
+              "width": 92
+            },
+            {
+              "tag": "th",
+              "cls": "px-4 py-3.5 text-left",
+              "left": 679,
+              "right": 775,
+              "width": 96
+            }
+          ]
+        },
+        {
+          "view": "reports",
+          "clicked": true,
+          "innerWidth": 768,
+          "scrollWidth": 822,
+          "clientWidth": 768,
+          "hasHorizontalScroll": true,
+          "offenderCount": 44,
+          "topOffenders": [
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 shrin",
+              "left": 1615,
+              "right": 1752,
+              "width": 136
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 1630,
+              "right": 1644,
+              "width": 14
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1633,
+              "right": 1642,
+              "width": 9
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1635,
+              "right": 1640,
+              "width": 5
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1635,
+              "right": 1636,
+              "width": 1
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 shrin",
+              "left": 1487,
+              "right": 1609,
+              "width": 122
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 1502,
+              "right": 1516,
+              "width": 14
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1504,
+              "right": 1514,
+              "width": 11
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1504,
+              "right": 1507,
+              "width": 3
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 shrin",
+              "left": 1323,
+              "right": 1481,
+              "width": 158
+            }
+          ]
+        },
+        {
+          "view": "settings",
+          "clicked": true,
+          "innerWidth": 768,
+          "scrollWidth": 822,
+          "clientWidth": 753,
+          "hasHorizontalScroll": true,
+          "offenderCount": 13,
+          "topOffenders": [
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12.5px] font-semibold flex items-center gap-1.5 shr",
+              "left": 894,
+              "right": 1066,
+              "width": 172
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 908,
+              "right": 924,
+              "width": 16
+            },
+            {
+              "tag": "ellipse",
+              "cls": "",
+              "left": 910,
+              "right": 922,
+              "width": 12
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 910,
+              "right": 922,
+              "width": 12
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12.5px] font-semibold flex items-center gap-1.5 shr",
+              "left": 781,
+              "right": 888,
+              "width": 107
+            },
+            {
+              "tag": "div",
+              "cls": "flex items-center gap-2.5",
+              "left": 592,
+              "right": 822,
+              "width": 230
+            },
+            {
+              "tag": "button",
+              "cls": "h-10 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text",
+              "left": 730,
+              "right": 822,
+              "width": 92
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 795,
+              "right": 811,
+              "width": 16
+            },
+            {
+              "tag": "circle",
+              "cls": "",
+              "left": 805,
+              "right": 809,
+              "width": 3
+            },
+            {
+              "tag": "line",
+              "cls": "",
+              "left": 799,
+              "right": 808,
+              "width": 9
+            },
+            {
+              "tag": "circle",
+              "cls": "",
+              "left": 798,
+              "right": 801,
+              "width": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "width": 1024,
+      "views": [
+        {
+          "view": "dashboard",
+          "clicked": true,
+          "innerWidth": 1024,
+          "scrollWidth": 1009,
+          "clientWidth": 1009,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "billing",
+          "clicked": true,
+          "innerWidth": 1024,
+          "scrollWidth": 1009,
+          "clientWidth": 1009,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "invoices",
+          "clicked": true,
+          "innerWidth": 1024,
+          "scrollWidth": 1024,
+          "clientWidth": 1024,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "products",
+          "clicked": true,
+          "innerWidth": 1024,
+          "scrollWidth": 1009,
+          "clientWidth": 1009,
+          "hasHorizontalScroll": false,
+          "offenderCount": 25,
+          "topOffenders": [
+            {
+              "tag": "table",
+              "cls": "w-full text-[13px]",
+              "left": 289,
+              "right": 1049,
+              "width": 760
+            },
+            {
+              "tag": "thead",
+              "cls": "bg-zinc-50 text-[11px] font-bold text-zinc-500 uppercase tracking-wider",
+              "left": 289,
+              "right": 1049,
+              "width": 760
+            },
+            {
+              "tag": "tr",
+              "cls": "",
+              "left": 289,
+              "right": 1049,
+              "width": 760
+            },
+            {
+              "tag": "th",
+              "cls": "px-5 py-3.5 text-right",
+              "left": 864,
+              "right": 1049,
+              "width": 185
+            },
+            {
+              "tag": "tbody",
+              "cls": "divide-y divide-zinc-100",
+              "left": 289,
+              "right": 1049,
+              "width": 760
+            },
+            {
+              "tag": "tr",
+              "cls": "hover:bg-zinc-50/50 transition",
+              "left": 289,
+              "right": 1049,
+              "width": 760
+            },
+            {
+              "tag": "td",
+              "cls": "px-5 py-3.5 text-right",
+              "left": 864,
+              "right": 1049,
+              "width": 185
+            }
+          ]
+        },
+        {
+          "view": "customers",
+          "clicked": true,
+          "innerWidth": 1024,
+          "scrollWidth": 1024,
+          "clientWidth": 1024,
+          "hasHorizontalScroll": false,
+          "offenderCount": 33,
+          "topOffenders": [
+            {
+              "tag": "table",
+              "cls": "w-full text-[13px]",
+              "left": 289,
+              "right": 1098,
+              "width": 809
+            },
+            {
+              "tag": "thead",
+              "cls": "bg-zinc-50 text-[11px] font-bold text-zinc-500 uppercase tracking-wider",
+              "left": 289,
+              "right": 1098,
+              "width": 809
+            },
+            {
+              "tag": "tr",
+              "cls": "",
+              "left": 289,
+              "right": 1098,
+              "width": 809
+            },
+            {
+              "tag": "th",
+              "cls": "px-5 py-3.5 text-right",
+              "left": 793,
+              "right": 1098,
+              "width": 306
+            },
+            {
+              "tag": "tbody",
+              "cls": "divide-y divide-zinc-100",
+              "left": 289,
+              "right": 1098,
+              "width": 809
+            },
+            {
+              "tag": "tr",
+              "cls": "hover:bg-zinc-50/50 transition",
+              "left": 289,
+              "right": 1098,
+              "width": 809
+            },
+            {
+              "tag": "td",
+              "cls": "px-5 py-3.5 text-right",
+              "left": 793,
+              "right": 1098,
+              "width": 306
+            },
+            {
+              "tag": "div",
+              "cls": "inline-flex items-center gap-1.5",
+              "left": 813,
+              "right": 1078,
+              "width": 266
+            },
+            {
+              "tag": "button",
+              "cls": "h-8 w-8 rounded-lg border border-zinc-200 hover:bg-red-50 hover:border-red-200 h",
+              "left": 1046,
+              "right": 1078,
+              "width": 32
+            }
+          ]
+        },
+        {
+          "view": "suppliers",
+          "clicked": true,
+          "innerWidth": 1024,
+          "scrollWidth": 1024,
+          "clientWidth": 1024,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "payments",
+          "clicked": true,
+          "innerWidth": 1024,
+          "scrollWidth": 1024,
+          "clientWidth": 1024,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "reports",
+          "clicked": true,
+          "innerWidth": 1024,
+          "scrollWidth": 1024,
+          "clientWidth": 1024,
+          "hasHorizontalScroll": false,
+          "offenderCount": 28,
+          "topOffenders": [
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 shrin",
+              "left": 1615,
+              "right": 1752,
+              "width": 136
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 1630,
+              "right": 1644,
+              "width": 14
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1633,
+              "right": 1642,
+              "width": 9
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1635,
+              "right": 1640,
+              "width": 5
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1635,
+              "right": 1636,
+              "width": 1
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 shrin",
+              "left": 1487,
+              "right": 1609,
+              "width": 122
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 1502,
+              "right": 1516,
+              "width": 14
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1504,
+              "right": 1514,
+              "width": 11
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1504,
+              "right": 1507,
+              "width": 3
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 shrin",
+              "left": 1323,
+              "right": 1481,
+              "width": 158
+            }
+          ]
+        },
+        {
+          "view": "settings",
+          "clicked": true,
+          "innerWidth": 1024,
+          "scrollWidth": 1024,
+          "clientWidth": 1024,
+          "hasHorizontalScroll": false,
+          "offenderCount": 1,
+          "topOffenders": [
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12.5px] font-semibold flex items-center gap-1.5 shr",
+              "left": 894,
+              "right": 1066,
+              "width": 172
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "width": 1440,
+      "views": [
+        {
+          "view": "dashboard",
+          "clicked": true,
+          "innerWidth": 1440,
+          "scrollWidth": 1425,
+          "clientWidth": 1425,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "billing",
+          "clicked": true,
+          "innerWidth": 1440,
+          "scrollWidth": 1440,
+          "clientWidth": 1440,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "invoices",
+          "clicked": true,
+          "innerWidth": 1440,
+          "scrollWidth": 1440,
+          "clientWidth": 1440,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "products",
+          "clicked": true,
+          "innerWidth": 1440,
+          "scrollWidth": 1440,
+          "clientWidth": 1440,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "customers",
+          "clicked": true,
+          "innerWidth": 1440,
+          "scrollWidth": 1440,
+          "clientWidth": 1440,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "suppliers",
+          "clicked": true,
+          "innerWidth": 1440,
+          "scrollWidth": 1440,
+          "clientWidth": 1440,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "payments",
+          "clicked": true,
+          "innerWidth": 1440,
+          "scrollWidth": 1440,
+          "clientWidth": 1440,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        },
+        {
+          "view": "reports",
+          "clicked": true,
+          "innerWidth": 1440,
+          "scrollWidth": 1440,
+          "clientWidth": 1440,
+          "hasHorizontalScroll": false,
+          "offenderCount": 12,
+          "topOffenders": [
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 shrin",
+              "left": 1615,
+              "right": 1752,
+              "width": 136
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 1630,
+              "right": 1644,
+              "width": 14
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1633,
+              "right": 1642,
+              "width": 9
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1635,
+              "right": 1640,
+              "width": 5
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1635,
+              "right": 1636,
+              "width": 1
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 shrin",
+              "left": 1487,
+              "right": 1609,
+              "width": 122
+            },
+            {
+              "tag": "svg",
+              "cls": "",
+              "left": 1502,
+              "right": 1516,
+              "width": 14
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1504,
+              "right": 1514,
+              "width": 11
+            },
+            {
+              "tag": "path",
+              "cls": "",
+              "left": 1504,
+              "right": 1507,
+              "width": 3
+            },
+            {
+              "tag": "button",
+              "cls": "px-3.5 py-2 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 shrin",
+              "left": 1323,
+              "right": 1481,
+              "width": 158
+            }
+          ]
+        },
+        {
+          "view": "settings",
+          "clicked": true,
+          "innerWidth": 1440,
+          "scrollWidth": 1440,
+          "clientWidth": 1440,
+          "hasHorizontalScroll": false,
+          "offenderCount": 0,
+          "topOffenders": []
+        }
+      ]
+    }
+  ],
+  "console": []
+}

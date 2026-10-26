@@ -39,6 +39,8 @@ export interface BillingPageProps {
   invoices: Invoice[];
   settings: CompanySettings;
   editingInvoice: Invoice | null;
+  initialCustomerId?: string;
+  onInitialCustomerConsumed?: () => void;
   onSaveInvoice: (invoice: Invoice) => void;
   onOpenBarcodeScanner: () => void;
   onOpenAddProduct: (initialName?: string) => void;
@@ -52,6 +54,8 @@ export function BillingPage({
   invoices,
   settings,
   editingInvoice,
+  initialCustomerId,
+  onInitialCustomerConsumed,
   onSaveInvoice,
   onOpenBarcodeScanner,
   onOpenAddProduct,
@@ -59,7 +63,9 @@ export function BillingPage({
   onCancelEdit,
 }: BillingPageProps) {
   // Form State
-  const [customerId, setCustomerId] = useState<string>(editingInvoice?.customerId || "");
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>(
+    String(editingInvoice?.customerId || initialCustomerId || ""),
+  );
   const [customerPhone, setCustomerPhone] = useState<string>(editingInvoice?.customerPhone || "");
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [date, setDate] = useState<string>(editingInvoice?.date || todayISO());
@@ -73,6 +79,7 @@ export function BillingPage({
   );
   const [notes, setNotes] = useState<string>(editingInvoice?.notes || "");
   const [terms, setTerms] = useState<string>(editingInvoice?.terms || settings.invoiceTerms);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Search & suggestions
   const [productSearch, setProductSearch] = useState("");
@@ -81,11 +88,16 @@ export function BillingPage({
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Selected customer
+  // Selected customer (single canonical source of truth)
   const selectedCustomer = useMemo(
-    () => customers.find((c) => c.id === customerId) || null,
-    [customers, customerId],
+    () => customers.find((c) => String(c.id) === selectedCustomerId) || null,
+    [customers, selectedCustomerId],
   );
+
+  // Consume one-time initial customer selection
+  useEffect(() => {
+    if (initialCustomerId) onInitialCustomerConsumed?.();
+  }, [initialCustomerId, onInitialCustomerConsumed]);
 
   // Sync phone when customer changes
   useEffect(() => {
@@ -206,8 +218,10 @@ export function BillingPage({
 
   // Save Invoice
   const handleSave = () => {
+    if (isSaving) return;
     setError("");
-    if (!selectedCustomer) {
+    const customerId = selectedCustomerId.trim();
+    if (!customerId || !selectedCustomer || String(selectedCustomer.id) !== customerId) {
       setError("Please select a customer for this invoice.");
       return;
     }
@@ -233,6 +247,7 @@ export function BillingPage({
         ? paidAmount
         : parseFloat(String(paidAmount)) || 0;
 
+    setIsSaving(true);
     const invoiceRecord = buildInvoiceRecord({
       id: editingInvoice?.id || `inv_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       invoiceNo,
@@ -253,7 +268,11 @@ export function BillingPage({
       status: "Saved",
     });
 
-    onSaveInvoice(invoiceRecord);
+    try {
+      onSaveInvoice(invoiceRecord);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const filteredSearchProducts = useMemo(() => {
@@ -324,8 +343,12 @@ export function BillingPage({
                   Select Existing Customer *
                 </label>
                 <select
-                  value={customerId}
-                  onChange={(e) => setCustomerId(e.target.value)}
+                  value={selectedCustomerId}
+                  onChange={(e) => {
+                    const next = String(e.target.value);
+                    setSelectedCustomerId(next);
+                    if (next) setError("");
+                  }}
                   className="mt-1 w-full h-11 px-3 rounded-xl border border-zinc-200 text-[13px] font-medium bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 >
                   <option value="">Select customer</option>
@@ -436,6 +459,13 @@ export function BillingPage({
                 type="text"
                 value={productSearch}
                 onChange={(e) => setProductSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && filteredSearchProducts.length > 0) {
+                    e.preventDefault();
+                    addProductToInvoice(filteredSearchProducts[0]);
+                    setProductSearch("");
+                  }
+                }}
                 placeholder="Search by product name, barcode, SKU or HSN..."
                 className="w-full h-11 pl-10 pr-4 rounded-xl border border-zinc-200 bg-zinc-50/50 text-[13px] font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
               />
@@ -497,7 +527,9 @@ export function BillingPage({
               {items.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setItems([])}
+                  onClick={() => {
+                    if (window.confirm("Clear all items from the cart?")) setItems([]);
+                  }}
                   className="text-[12px] text-red-600 hover:underline font-medium"
                 >
                   Clear all
@@ -828,21 +860,22 @@ export function BillingPage({
               />
             </div>
 
-            {/* Desktop Save Action */}
+            {/* Desktop Save Action (hidden on mobile — bottom bar handles it) */}
             <button
               type="button"
               onClick={handleSave}
-              className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-[14px] flex items-center justify-center gap-2 transition shadow-lg"
+              disabled={isSaving}
+              className="hidden md:block w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-extrabold text-[14px] flex items-center justify-center gap-2 transition shadow-lg"
             >
               <Save className="h-5 w-5" />
-              {editingInvoice ? "Update Invoice" : "Save & Generate Invoice"}
+              {isSaving ? "Saving..." : editingInvoice ? "Update Invoice" : "Save & Generate Invoice"}
             </button>
           </div>
         </div>
       </div>
 
       {/* Sticky Mobile POS Bottom Bar (Phase 24 & 25) */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-900 text-white p-3 border-t border-zinc-800 shadow-2xl flex items-center justify-between gap-3">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-900 text-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] border-t border-zinc-800 shadow-2xl flex items-center justify-between gap-3">
         <div>
           <div className="text-[10px] text-zinc-400 uppercase font-bold">Total Payable</div>
           <div className="text-[18px] font-extrabold mono text-white">
@@ -853,10 +886,11 @@ export function BillingPage({
         <button
           type="button"
           onClick={handleSave}
-          className="h-12 px-6 rounded-xl bg-indigo-600 active:bg-indigo-700 text-white font-bold text-[14px] flex items-center gap-2 shadow-lg"
+          disabled={isSaving}
+          className="h-12 px-6 rounded-xl bg-indigo-600 active:bg-indigo-700 disabled:opacity-60 text-white font-bold text-[14px] flex items-center gap-2 shadow-lg"
         >
           <Save className="h-4 w-4" />
-          <span>Save Bill</span>
+          <span>{isSaving ? "Saving..." : "Save Bill"}</span>
         </button>
       </div>
     </div>

@@ -199,9 +199,9 @@ export function DashboardPage({
       { businessState: settings.state },
     );
     return rep.byMode.map((m) => ({
-      name: m.mode,
-      value: m.totalValue,
-      count: m.count,
+      name: m.label,
+      value: m.totalSales,
+      count: m.invoiceCount,
     }));
   }, [invoices, settings.state]);
 
@@ -322,7 +322,7 @@ export function DashboardPage({
             {formatCurrency(periodSales.grandTotal)}
           </div>
           <div className="mt-1 text-[11px] text-zinc-500">
-            {periodSales.activeCount} invoices • Tax: {formatCurrency(periodSales.gstTotal)}
+            {periodSales.invoiceCount} invoices • Tax: {formatCurrency(periodSales.gstTotal)}
           </div>
         </div>
 
@@ -346,7 +346,7 @@ export function DashboardPage({
             {formatCurrency(stats.outstandingAmount)}
           </div>
           <div className="mt-1 text-[11px] text-zinc-500">
-            {stats.pendingInvoicesCount} pending • {stats.partialInvoicesCount} partial
+            {stats.pendingInvoices} pending • {stats.partialInvoices} partial
           </div>
         </div>
 

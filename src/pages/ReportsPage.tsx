@@ -133,8 +133,8 @@ export function ReportsPage({
 
   // Customer Report
   const customersData = useMemo(() => {
-    return customerReport(customers, invoices, payments, { businessState: settings.state });
-  }, [customers, invoices, payments, settings.state]);
+    return customerReport(invoices, customers, { businessState: settings.state, payments });
+  }, [invoices, customers, payments, settings.state]);
 
   // Supplier Summaries
   const suppliersData = useMemo(() => {
@@ -650,7 +650,7 @@ export function ReportsPage({
           selectedReport === "returns") && (
           <div className="overflow-x-auto">
             <div className="text-[13px] text-zinc-500 pb-2">
-              Viewing filtered dataset for {selectedReport.toUpperCase()} ({activeRange.start} to {activeRange.end}).
+              Viewing filtered dataset for {selectedReport.toUpperCase()} ({activeRange.from} to {activeRange.to}).
             </div>
             <table className="w-full text-[12px]">
               <thead className="bg-zinc-50 text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
