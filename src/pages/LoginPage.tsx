@@ -52,95 +52,108 @@ export default function LoginPage({
   );
 
   return (
-    <div className="min-h-screen bg-[#070b16] flex items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-md">
-        <div className="flex items-center gap-3 mb-6">
-          <img
-            src="/images/vels-tech-logo.png"
-            alt="VELS TECH official logo"
-            className="h-14 w-14 shrink-0 object-contain sm:h-16 sm:w-16"
-          />
-          <div>
-            <div className="font-extrabold text-white tracking-tight">VELS TECH</div>
-            <div className="text-[11px] tracking-widest text-slate-400">
-              BILLING • VEPPUR
-            </div>
-          </div>
-        </div>
-
-        <h1 className="mb-2 text-xl font-bold text-white">Sign in</h1>
-        <p className="mb-6 text-sm text-slate-400">Access your business dashboard</p>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-slate-300">
-              Email address
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
-              <input
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@business.com"
-                className="pl-10 h-11 w-full rounded-xl border border-white/10 bg-black/40 px-3 text-sm text-white outline-none focus:border-amber-500 placeholder-slate-500 disabled:opacity-70"
-                disabled={loading}
-              />
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10">
+        <div className="w-full max-w-xl">
+          {/* Logo + Brand */}
+          <div className="flex items-center gap-3 mb-4 sm:mb-6">
+            <img
+              src="/images/vels-tech-logo.png"
+              alt="VELS TECH official logo"
+              className="h-10 w-10 shrink-0 object-contain sm:h-12 sm:w-12 md:h-14 md:w-14"
+            />
+            <div>
+              <div className="font-extrabold text-white tracking-tight text-base sm:text-lg">
+                VELS TECH
+              </div>
+              <div className="text-[10px] tracking-widest text-slate-400">
+                BILLING • VEPPUR
+              </div>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
+          {/* Heading + Subtitle */}
+          <h1 className="mb-2 text-lg sm:text-xl font-bold text-white">
+            Sign in
+          </h1>
+          <p className="mb-4 sm:mb-6 text-sm sm:text-base text-slate-400">
+            Access your business dashboard
+          </p>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+
+            <div className="space-y-2">
               <label className="block text-sm font-medium text-slate-300">
-                Password
+                Email address
               </label>
-              <button
-                type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                className="text-xs text-slate-400 hover:text-amber-400 transition-colors disabled:opacity-50"
-                disabled={loading}
-              >
-                {showPassword ? "Hide" : "Show"}
-              </button>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
+                <input
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@business.com"
+                  className="pl-10 h-12 w-full rounded-xl border border-white/10 bg-black/40 px-3 text-sm text-white outline-none focus:border-amber-500 placeholder-slate-500 disabled:opacity-70"
+                  disabled={loading}
+                />
+              </div>
             </div>
-            <div className="relative">
-              <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
-              <input
-                type={showPassword ? "text" : "password"}
-                autoComplete={showPassword ? "new-password" : "current-password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="pl-10 h-11 w-full rounded-xl border border-white/10 bg-black/40 px-3 text-sm text-white outline-none focus:border-amber-500 placeholder-slate-500 disabled:opacity-70"
-                disabled={loading}
-              />
-            </div>
-          </div>
 
-          {error && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 text-sm">
-              <AlertCircle className="h-4 w-4 flex-shrink-0" />
-              <span>{error}</span>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <label className="block text-sm font-medium text-slate-300">
+                  Password
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="text-xs sm:text-sm text-slate-400 hover:text-amber-400 transition-colors disabled:opacity-50 h-9 px-2 rounded-lg flex-shrink-0"
+                  disabled={loading}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  autoComplete={showPassword ? "new-password" : "current-password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="pl-10 h-12 w-full rounded-xl border border-white/10 bg-black/40 px-3 text-sm text-white outline-none focus:border-amber-500 placeholder-slate-500 disabled:opacity-70"
+                  disabled={loading}
+                />
+              </div>
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full h-11 rounded-xl bg-amber-500 text-sm font-bold text-white hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Signing in...
-              </>
-            ) : (
-              "Sign in"
+            {error && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 text-sm">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                <span>{error}</span>
+              </div>
             )}
-          </button>
-        </form>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full h-12 rounded-xl bg-amber-500 text-sm font-bold text-white hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                "Sign in"
+              )}
+            </button>
+          </form>
+        </div>
       </div>
+
+      <div className="h-8 sm:h-12 lg:h-16"></div>
     </div>
   );
 }

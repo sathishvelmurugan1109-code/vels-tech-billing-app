@@ -5,6 +5,10 @@
 
 import type { LoginCredentials, LoginResponse, User } from "../types/auth";
 
+// API base URL — use VITE_API_URL for your environment.
+// Development (desktop): VITE_API_URL=http://localhost:5000
+// Development (mobile): VITE_API_URL=http://YOUR_LAN_IP:5000
+// Production: VITE_API_URL=https://api.your-domain.com
 const API_BASE =
   (import.meta as any)?.env?.VITE_API_URL || "http://localhost:5000";
 
