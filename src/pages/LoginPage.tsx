@@ -52,6 +52,7 @@ export default function LoginPage({
   );
 
   return (
+    <div className="min-h-screen bg-[#070b16] text-white">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10">
         <div className="w-full max-w-xl">
           {/* Logo + Brand */}
@@ -81,7 +82,6 @@ export default function LoginPage({
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
-
             <div className="space-y-2">
               <label className="block text-sm font-medium text-slate-300">
                 Email address

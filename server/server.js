@@ -3,6 +3,9 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const path = require("path");
+
+dotenv.config({ path: path.join(__dirname, ".env") });
+
 const { connectDB } = require("./config/db");
 const { authenticate } = require("./middleware/auth");
 const authRoutes = require("./routes/auth");
@@ -19,16 +22,22 @@ const Payment = require("./models/Payment");
 const Expense = require("./models/Expense");
 const StockMovement = require("./models/StockMovement");
 
-dotenv.config({ path: path.join(__dirname, ".env") });
-
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173")
-  .split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
+const defaultAllowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:5176",
+  "http://127.0.0.1:5176",
+];
+const allowedOrigins = [
+  ...new Set([
+    ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : []),
+    ...defaultAllowedOrigins,
+  ].map((o) => o.trim()).filter(Boolean)),
+];
 
 for (const origin of [...allowedOrigins]) {
   const parsedOrigin = new URL(origin);

@@ -3,19 +3,15 @@
 
 import { authService } from "./authService";
 
+declare const __VITE_API_URL__: string | undefined;
+
 // API base URL — use VITE_API_URL for your environment.
 // Development (desktop): VITE_API_URL=http://localhost:5000
 // Development (mobile): VITE_API_URL=http://YOUR_LAN_IP:5000
 // Production: VITE_API_URL=https://api.your-domain.com
-const getViteApiBase = (): string | undefined => {
-  try {
-    const meta = eval("import.meta") as any;
-    return meta?.env?.VITE_API_URL;
-  } catch {
-    return undefined;
-  }
-};
-const API_BASE = getViteApiBase() || "http://localhost:5000";
+const API_BASE =
+  (typeof __VITE_API_URL__ !== "undefined" && __VITE_API_URL__) ||
+  "http://localhost:5000";
 
 function getHeaders(extra: Record<string, string> = {}): Record<string, string> {
   const headers: Record<string, string> = {

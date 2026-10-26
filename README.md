@@ -9,8 +9,45 @@ This is a full installable Web App.
 - Works as native app
 
 ## Run Locally
-npm install
-npm run dev -> http://localhost:5173
+
+Requirements: Node.js and a running MongoDB instance.
+
+1. Create the local environment files if they do not already exist:
+
+   ```powershell
+   if (!(Test-Path .env)) { Copy-Item .env.example .env }
+   if (!(Test-Path server\.env)) { Copy-Item server\.env.example server\.env }
+   ```
+
+2. In `server\.env`, set `MONGODB_URI` to your MongoDB connection string and replace
+   `JWT_SECRET` with a long, private random value. Never use the example secret in
+   production. The backend reads configuration from `server\.env`.
+3. Install frontend and backend dependencies:
+
+   ```powershell
+   npm install
+   npm --prefix server install
+   ```
+
+4. Start the backend in one terminal:
+
+   ```powershell
+   npm run dev:server
+   ```
+
+5. Start the frontend in another terminal:
+
+   ```powershell
+   npm run dev
+   ```
+
+   Open the Vite URL shown in the terminal (port 5176 by default). The frontend
+   reads `VITE_API_URL` from the root `.env`; restart Vite after changing it.
+
+For mobile testing, set `VITE_API_URL` to your computer's LAN address, for example
+`http://192.168.1.20:5000`, and add the frontend origin (for example
+`http://192.168.1.20:5176`) to `CORS_ORIGIN` in `server\.env`. Run Vite with
+`npm run dev -- --host 0.0.0.0` so other devices on the LAN can reach it.
 
 ## Build for Web Hosting
 npm run build
@@ -24,5 +61,4 @@ npm run build
 ## PWA Install
 When hosted on HTTPS, users can click 'Add to Home Screen' and use it like an app.
 
-## Backend (Optional Future)
-You can connect Firebase/Supabase for multi-device sync.
+The backend health endpoint is available at `http://localhost:5000/api/health`.
