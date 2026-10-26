@@ -3,8 +3,8 @@
  */
 import { strict as assert } from "node:assert";
 import { describe, it } from "node:test";
-import { computeGst, computeGstInclusive, extractTaxableFromInclusive, GST_RATE_OPTIONS, gstRateLabel, isValidGstRate, normalizeGstRate, normalizeState, resolveTaxType, splitGst, taxTypeLabel } from "../gstService";
-import { calculateInvoice, calculateInvoiceLines, calculateInvoiceTotals, calculateLine, calculateLineDiscount, resolveDiscountType } from "../invoiceService";
+import { computeGst, computeGstInclusive, extractTaxableFromInclusive, formatGstRate, GST_RATE_OPTIONS, gstRateLabel, isValidGstRate, normalizeGstRate, normalizeState, resolveTaxType, splitGst, taxTypeLabel } from "../gstService";
+import { calculateInvoice, calculateInvoiceLines, calculateInvoiceTotals, calculateLine, calculateLineDiscount, resolveDiscountType, summarizeGstByRate } from "../invoiceService";
 
 describe("discount engine (PHASE 4)", () => {
   it("percent discount reduces the line", () => {
@@ -57,6 +57,13 @@ describe("product line calculations (PHASE 3)", () => {
     assert.equal(lines[0].gstAmount, 5);
     assert.equal(lines[1].gstAmount, 28);
   });
+  it("supports classification-specific fractional rates without rounding the rate", () => {
+    const line = calculateLine({ price: 1000, qty: 1, gst: 1.5 }, "intra");
+    assert.equal(line.gstRate, 1.5);
+    assert.equal(line.gstAmount, 15);
+    assert.equal(line.cgst, 7.5);
+    assert.equal(line.sgst, 7.5);
+  });
   it("filters out empty rows", () => {
     assert.equal(calculateInvoiceLines([null, undefined, { price: 1, qty: 1, gst: 0 }], "intra").length, 1);
   });
@@ -68,7 +75,10 @@ describe("GST rates + tax types (PHASE 5)", () => {
     assert.equal(isValidGstRate(18), true);
     assert.equal(isValidGstRate(-1), false);
     assert.equal(isValidGstRate(101), false);
-    assert.equal(normalizeGstRate(18.7), 19);
+    assert.equal(normalizeGstRate(18.7), 18.7);
+    assert.equal(normalizeGstRate(18.789), 18.79);
+    assert.equal(formatGstRate(18), "18");
+    assert.equal(formatGstRate(1.5), "1.5");
     assert.equal(gstRateLabel(0), "0% (Exempt)");
     assert.equal(gstRateLabel(30), "30%");
   });
@@ -78,6 +88,36 @@ describe("GST rates + tax types (PHASE 5)", () => {
     assert.equal(resolveTaxType("  tamil nadu ", "TAMIL NADU"), "intra");
     assert.equal(normalizeState(" Karnataka "), "karnataka");
     assert.ok(taxTypeLabel("intra").includes("CGST"));
+  });
+
+  describe("invoice GST rate breakdown", () => {
+    it("groups taxable value and tax by rate and reconciles with invoice totals", () => {
+      const lines = calculateInvoiceLines(
+        [
+          { price: 100, qty: 1, gst: 5 },
+          { price: 100, qty: 1, gst: 18 },
+          { price: 200, qty: 1, gst: 18 },
+        ],
+        "intra",
+      );
+      const groups = summarizeGstByRate(lines);
+      assert.deepEqual(groups.map(({ gstRate, taxableAmount, gstAmount }) => [
+        gstRate,
+        taxableAmount,
+        gstAmount,
+      ]), [
+        [5, 100, 5],
+        [18, 300, 54],
+      ]);
+      assert.equal(groups.reduce((sum, group) => sum + group.cgst + group.sgst, 0), 59);
+    });
+    it("keeps paise reconciled in inter-state IGST breakdowns", () => {
+      const groups = summarizeGstByRate(
+        calculateInvoiceLines([{ price: 0.05, qty: 1, gst: 18 }], "inter"),
+      );
+      assert.equal(groups[0].igst, 0.01);
+      assert.equal(groups[0].gstAmount, 0.01);
+    });
   });
   it("18% splits into 9 + 9 with no lost paise", () => {
     const split = computeGst(1000, 18, "intra");

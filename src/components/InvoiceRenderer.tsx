@@ -1,9 +1,10 @@
 import React from "react";
-import { formatCurrency, roundMoney } from "../services/money";
+import { formatCurrency } from "../services/money";
 import { generateQrDataUrl, buildUpiUri } from "../services/qrService";
-import { calculateInvoice } from "../services/invoiceService";
+import { calculateInvoice, summarizeGstByRate } from "../services/invoiceService";
+import { formatGstRate } from "../services/gstService";
 import type { Invoice, CompanySettings } from "../types";
-import { Phone, Mail, Calendar, Check, AlertCircle } from "lucide-react";
+import { Phone, Mail, Calendar, Smartphone } from "lucide-react";
 
 export interface InvoiceRendererProps {
   invoice: Invoice;
@@ -57,6 +58,7 @@ export function buildWhatsAppText(inv: Invoice, settings: CompanySettings): stri
     ...lines,
     ``,
     `Taxable Amount: ${formatCurrency(inv.taxableAmount)}`,
+    `GST Amount: ${formatCurrency(inv.gstTotal)}`,
     inv.cgst > 0
       ? `CGST: ${formatCurrency(inv.cgst)} | SGST: ${formatCurrency(inv.sgst)}`
       : `IGST: ${formatCurrency(inv.igst)}`,
@@ -119,9 +121,42 @@ export function buildInvoiceHtmlDoc(inv: Invoice, settings: CompanySettings, inv
         )
       : "");
 
-  const calculatedLines = calculateInvoice(inv, {
+  const calculation = calculateInvoice(inv, {
     businessState: inv.businessState,
-  }).lines;
+  });
+  const calculatedLines = calculation.lines;
+  const gstRateBreakdown = summarizeGstByRate(calculatedLines);
+  const gstBreakdownRows = gstRateBreakdown
+    .map((group) =>
+      calculation.taxType === "intra"
+        ? `<tr>
+            <td>${formatGstRate(group.gstRate)}%</td>
+            <td>${formatCurrency(group.taxableAmount)}</td>
+            <td>${formatGstRate(group.gstRate / 2)}%</td>
+            <td>${formatCurrency(group.cgst)}</td>
+            <td>${formatGstRate(group.gstRate / 2)}%</td>
+            <td>${formatCurrency(group.sgst)}</td>
+            <td>${formatCurrency(group.gstAmount)}</td>
+          </tr>`
+        : `<tr>
+            <td>${formatGstRate(group.gstRate)}%</td>
+            <td>${formatCurrency(group.taxableAmount)}</td>
+            <td>${formatGstRate(group.gstRate)}%</td>
+            <td>${formatCurrency(group.igst)}</td>
+            <td>${formatCurrency(group.gstAmount)}</td>
+          </tr>`,
+    )
+    .join("");
+  const gstBreakdownTable =
+    calculation.taxType === "intra"
+      ? `<table class="tax-breakdown">
+          <thead><tr><th>GST Rate</th><th>Taxable Value</th><th>CGST Rate</th><th>CGST Amount</th><th>SGST Rate</th><th>SGST Amount</th><th>Total GST</th></tr></thead>
+          <tbody>${gstBreakdownRows}</tbody>
+        </table>`
+      : `<table class="tax-breakdown">
+          <thead><tr><th>GST Rate</th><th>Taxable Value</th><th>IGST Rate</th><th>IGST Amount</th><th>Total GST</th></tr></thead>
+          <tbody>${gstBreakdownRows}</tbody>
+        </table>`;
   const rows = inv.items
     .map((it, idx) => {
       const line = calculatedLines[idx];
@@ -139,7 +174,8 @@ export function buildInvoiceHtmlDoc(inv: Invoice, settings: CompanySettings, inv
         <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right;">${formatCurrency(it.price)}</td>
         <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right;">${discountLabel}</td>
         <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right;">${formatCurrency(line.taxableAmount)}</td>
-        <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right;">${line.gstRate}%</td>
+        <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right;">${formatGstRate(line.gstRate)}%</td>
+        <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right;">${formatCurrency(line.gstAmount)}</td>
         <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;">${formatCurrency(line.lineTotal)}</td>
       </tr>`;
     })
@@ -156,6 +192,9 @@ export function buildInvoiceHtmlDoc(inv: Invoice, settings: CompanySettings, inv
     .avoid-break { page-break-inside: avoid; }
     table { width: 100%; border-collapse: collapse; margin-top: 16px; }
     th { background: #0f172a; color: #fff; padding: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .tax-breakdown { margin-top: 8px; font-size: 9px; }
+    .tax-breakdown th, .tax-breakdown td { padding: 5px; border: 1px solid #cbd5e1; text-align: right; }
+    .tax-breakdown th:first-child { text-align: left; }
     .box { border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; }
   </style>
 </head>
@@ -216,14 +255,20 @@ export function buildInvoiceHtmlDoc(inv: Invoice, settings: CompanySettings, inv
         <th style="width:80px; text-align:right;">Rate</th>
         <th style="width:50px; text-align:right;">Disc</th>
         <th style="width:90px; text-align:right;">Taxable</th>
-        <th style="width:50px; text-align:right;">GST</th>
-        <th style="width:90px; text-align:right;">Total</th>
+        <th style="width:50px; text-align:right;">GST Rate</th>
+        <th style="width:80px; text-align:right;">GST Amount</th>
+        <th style="width:90px; text-align:right;">Total Amount</th>
       </tr>
     </thead>
     <tbody>
       ${rows}
     </tbody>
   </table>
+
+  <div class="avoid-break" style="margin-top:14px;">
+    <div style="font-size:10px;font-weight:700;color:#334155;">GST Rate-wise Tax Breakdown</div>
+    ${gstBreakdownTable}
+  </div>
 
   <div style="display:grid; grid-template-columns: 1.2fr 1fr; gap:16px; margin-top:16px;" class="avoid-break">
     <div>
@@ -258,21 +303,10 @@ export function buildInvoiceHtmlDoc(inv: Invoice, settings: CompanySettings, inv
         <span style="color:#64748b;">Taxable Amount:</span>
         <span style="font-family:monospace;">${formatCurrency(inv.taxableAmount)}</span>
       </div>
-      ${
-        inv.cgst > 0
-          ? `<div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:11px;">
-              <span style="color:#64748b;">CGST:</span>
-              <span style="font-family:monospace;">${formatCurrency(inv.cgst)}</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:11px;">
-              <span style="color:#64748b;">SGST:</span>
-              <span style="font-family:monospace;">${formatCurrency(inv.sgst)}</span>
-            </div>`
-          : `<div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:11px;">
-              <span style="color:#64748b;">IGST:</span>
-              <span style="font-family:monospace;">${formatCurrency(inv.igst)}</span>
-            </div>`
-      }
+      <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:11px;">
+        <span style="color:#64748b;">GST Amount:</span>
+        <span style="font-family:monospace;">${formatCurrency(inv.gstTotal)}</span>
+      </div>
       ${
         inv.roundOff !== 0
           ? `<div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:11px;">
@@ -282,7 +316,7 @@ export function buildInvoiceHtmlDoc(inv: Invoice, settings: CompanySettings, inv
           : ""
       }
       <div style="border-top:1px solid #cbd5e1; margin-top:6px; padding-top:6px; display:flex; justify-content:space-between; font-size:15px; font-weight:800;">
-        <span>Grand Total:</span>
+        <span>Total Amount:</span>
         <span style="font-family:monospace;">${formatCurrency(inv.grandTotal)}</span>
       </div>
       <div style="border-top:1px dashed #cbd5e1; margin-top:6px; padding-top:6px; font-size:11px;">
@@ -314,9 +348,11 @@ export function buildInvoiceHtmlDoc(inv: Invoice, settings: CompanySettings, inv
 
 export function InvoiceRenderer({ invoice, settings, invoiceLogo, isPrintArea = false }: InvoiceRendererProps) {
   const balance = Math.max(0, invoice.grandTotal - invoice.paidAmount);
-  const calculatedLines = calculateInvoice(invoice, {
+  const calculation = calculateInvoice(invoice, {
     businessState: invoice.businessState,
-  }).lines;
+  });
+  const calculatedLines = calculation.lines;
+  const gstRateBreakdown = summarizeGstByRate(calculatedLines);
 
   // Dynamic UPI QR code generation if UPI is configured
   const upiUrl = settings.upiId
@@ -443,7 +479,7 @@ export function InvoiceRenderer({ invoice, settings, invoiceLogo, isPrintArea = 
               ) : null}
               <div className="text-[12px] leading-snug text-zinc-600">
                 <div className="font-bold text-zinc-900 flex items-center gap-1.5">
-                  <Check className="h-3.5 w-3.5 text-emerald-600" /> Scan & Pay via UPI
+                  <Smartphone className="h-3.5 w-3.5 text-indigo-600" /> Manual UPI QR (not gateway verified)
                 </div>
                 <div className="mt-1 mono text-[11px]">UPI: {settings.upiId}</div>
                 <div className="mt-1 font-semibold text-zinc-900">
@@ -454,6 +490,9 @@ export function InvoiceRenderer({ invoice, settings, invoiceLogo, isPrintArea = 
                     {settings.paymentInstructions}
                   </div>
                 )}
+                <div className="mt-1 text-[10px] font-medium text-amber-700">
+                  Payment is not verified when this QR is displayed. Invoice remains pending until receipt is confirmed.
+                </div>
               </div>
             </div>
           ) : (
@@ -475,8 +514,9 @@ export function InvoiceRenderer({ invoice, settings, invoiceLogo, isPrintArea = 
                   <th className="text-right font-semibold px-3 py-3">Rate</th>
                   <th className="text-right font-semibold px-3 py-3">Disc</th>
                   <th className="text-right font-semibold px-3 py-3">Taxable</th>
-                  <th className="text-center font-semibold px-3 py-3">GST%</th>
-                  <th className="text-right font-semibold px-4 py-3">Total</th>
+                  <th className="text-center font-semibold px-3 py-3">GST Rate</th>
+                  <th className="text-right font-semibold px-3 py-3">GST Amount</th>
+                  <th className="text-right font-semibold px-4 py-3">Total Amount</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
@@ -507,12 +547,67 @@ export function InvoiceRenderer({ invoice, settings, invoiceLogo, isPrintArea = 
                       </td>
                       <td className="px-3 py-3 text-right mono">{formatCurrency(taxable)}</td>
                       <td className="px-3 py-3 text-center mono">{lineTotals.gstRate}%</td>
+                      <td className="px-3 py-3 text-right mono">{formatCurrency(lineTotals.gstAmount)}</td>
                       <td className="px-4 py-3 text-right font-bold mono">
                         {formatCurrency(lineTotals.lineTotal)}
                       </td>
                     </tr>
                   );
                 })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="avoid-break mt-4">
+          <div className="text-[11px] font-bold text-zinc-700">
+            GST Rate-wise Tax Breakdown
+          </div>
+          <div className="mt-2 overflow-x-auto rounded-lg border border-zinc-200">
+            <table className="w-full text-[10px]">
+              <thead className="bg-zinc-100 text-zinc-600">
+                {calculation.taxType === "intra" ? (
+                  <tr>
+                    <th className="px-2 py-2 text-left">GST Rate</th>
+                    <th className="px-2 py-2 text-right">Taxable Value</th>
+                    <th className="px-2 py-2 text-right">CGST Rate</th>
+                    <th className="px-2 py-2 text-right">CGST Amount</th>
+                    <th className="px-2 py-2 text-right">SGST Rate</th>
+                    <th className="px-2 py-2 text-right">SGST Amount</th>
+                    <th className="px-2 py-2 text-right">Total GST</th>
+                  </tr>
+                ) : (
+                  <tr>
+                    <th className="px-2 py-2 text-left">GST Rate</th>
+                    <th className="px-2 py-2 text-right">Taxable Value</th>
+                    <th className="px-2 py-2 text-right">IGST Rate</th>
+                    <th className="px-2 py-2 text-right">IGST Amount</th>
+                    <th className="px-2 py-2 text-right">Total GST</th>
+                  </tr>
+                )}
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {gstRateBreakdown.map((group) =>
+                  calculation.taxType === "intra" ? (
+                    <tr key={group.gstRate}>
+                      <td className="px-2 py-2">{formatGstRate(group.gstRate)}%</td>
+                      <td className="px-2 py-2 text-right mono">{formatCurrency(group.taxableAmount)}</td>
+                      <td className="px-2 py-2 text-right">{formatGstRate(group.gstRate / 2)}%</td>
+                      <td className="px-2 py-2 text-right mono">{formatCurrency(group.cgst)}</td>
+                      <td className="px-2 py-2 text-right">{formatGstRate(group.gstRate / 2)}%</td>
+                      <td className="px-2 py-2 text-right mono">{formatCurrency(group.sgst)}</td>
+                      <td className="px-2 py-2 text-right mono">{formatCurrency(group.gstAmount)}</td>
+                    </tr>
+                  ) : (
+                    <tr key={group.gstRate}>
+                      <td className="px-2 py-2">{formatGstRate(group.gstRate)}%</td>
+                      <td className="px-2 py-2 text-right mono">{formatCurrency(group.taxableAmount)}</td>
+                      <td className="px-2 py-2 text-right">{formatGstRate(group.gstRate)}%</td>
+                      <td className="px-2 py-2 text-right mono">{formatCurrency(group.igst)}</td>
+                      <td className="px-2 py-2 text-right mono">{formatCurrency(group.gstAmount)}</td>
+                    </tr>
+                  ),
+                )}
               </tbody>
             </table>
           </div>
@@ -559,23 +654,10 @@ export function InvoiceRenderer({ invoice, settings, invoiceLogo, isPrintArea = 
                 <span className="text-zinc-500">Taxable Amount</span>
                 <span className="font-semibold mono">{formatCurrency(invoice.taxableAmount)}</span>
               </div>
-              {invoice.cgst > 0 ? (
-                <>
-                  <div className="flex justify-between text-zinc-600 text-[11px]">
-                    <span>CGST</span>
-                    <span className="mono">{formatCurrency(invoice.cgst)}</span>
-                  </div>
-                  <div className="flex justify-between text-zinc-600 text-[11px]">
-                    <span>SGST</span>
-                    <span className="mono">{formatCurrency(invoice.sgst)}</span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex justify-between text-zinc-600 text-[11px]">
-                  <span>IGST</span>
-                  <span className="mono">{formatCurrency(invoice.igst)}</span>
-                </div>
-              )}
+              <div className="flex justify-between text-zinc-500">
+                <span>GST Amount</span>
+                <span className="font-semibold mono">{formatCurrency(invoice.gstTotal)}</span>
+              </div>
               {invoice.roundOff !== 0 && (
                 <div className="flex justify-between text-[11px] text-zinc-500">
                   <span>Round Off</span>
@@ -587,7 +669,7 @@ export function InvoiceRenderer({ invoice, settings, invoiceLogo, isPrintArea = 
               )}
               <div className="h-px bg-zinc-300 my-1" />
               <div className="flex justify-between text-[17px] font-extrabold text-zinc-900">
-                <span>Grand Total</span>
+                <span>Total Amount</span>
                 <span className="mono">{formatCurrency(invoice.grandTotal)}</span>
               </div>
               <div className="pt-2 border-t border-dashed border-zinc-200 flex justify-between text-[12px]">

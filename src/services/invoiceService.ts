@@ -129,6 +129,36 @@ export type InvoiceTotals = {
   taxType: TaxType;
 };
 
+export type GstRateBreakdown = {
+  gstRate: number;
+  taxableAmount: number;
+  gstAmount: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+};
+
+/** Group invoice tax by each item's configured GST rate for tax invoices. */
+export function summarizeGstByRate(lines: InvoiceLineTotals[]): GstRateBreakdown[] {
+  const groups = new Map<number, InvoiceLineTotals[]>();
+  for (const line of lines) {
+    const group = groups.get(line.gstRate) ?? [];
+    group.push(line);
+    groups.set(line.gstRate, group);
+  }
+
+  return [...groups.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([gstRate, rateLines]) => ({
+      gstRate,
+      taxableAmount: sumMoney(rateLines.map((line) => line.taxableAmount)),
+      gstAmount: sumMoney(rateLines.map((line) => line.gstAmount)),
+      cgst: sumMoney(rateLines.map((line) => line.cgst)),
+      sgst: sumMoney(rateLines.map((line) => line.sgst)),
+      igst: sumMoney(rateLines.map((line) => line.igst)),
+    }));
+}
+
 /**
  * THE authoritative invoice result — every screen must use this.
  * (Superset of the required contract; extra keys never hurt callers.)

@@ -68,6 +68,7 @@ import {
   addMoney,
   subtractMoney,
   roundMoney,
+  formatCurrency,
 } from "./services";
 
 // Components & Modals
@@ -666,6 +667,18 @@ export default function App() {
 
   // --- Handlers: Payments ---
   const handleSavePayment = (paymentData: Omit<Payment, "id">) => {
+    if (paymentData.verificationStatus !== "verified" || !paymentData.verifiedAt) {
+      alert("Payment remains pending until receipt is independently verified.");
+      return;
+    }
+    const linkedInvoice = invoices.find((invoice) => invoice.id === paymentData.invoiceId);
+    if (linkedInvoice) {
+      const outstanding = Math.max(0, roundMoney(linkedInvoice.grandTotal - linkedInvoice.paidAmount));
+      if (paymentData.amount > outstanding) {
+        alert(`Payment cannot exceed the outstanding balance of ${formatCurrency(outstanding)}.`);
+        return;
+      }
+    }
     const pay: Payment = {
       id: `pay_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       ...paymentData,

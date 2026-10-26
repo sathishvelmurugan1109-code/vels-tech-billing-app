@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { X, CreditCard, Check, AlertCircle, Banknote, Smartphone, Calendar } from "lucide-react";
 import { formatCurrency, roundMoney } from "../services/money";
 import type { Customer, Invoice, Payment, PaymentMode } from "../types";
@@ -32,7 +32,9 @@ export function ReceivePaymentModal({
   const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
+  const [receiptVerified, setReceiptVerified] = useState(false);
   const [error, setError] = useState("");
+  const submitInProgress = useRef(false);
 
   const selectedCustomer = customers.find((c) => c.id === customerId);
 
@@ -58,6 +60,7 @@ export function ReceivePaymentModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitInProgress.current) return;
     if (!customerId) {
       setError("Please select a customer");
       return;
@@ -67,23 +70,39 @@ export function ReceivePaymentModal({
       setError("Payment amount must be greater than zero");
       return;
     }
+    if (selectedInvoice && safeAmt > invoicePending) {
+      setError(`Payment cannot exceed the outstanding balance of ${formatCurrency(invoicePending)}.`);
+      return;
+    }
+    if (!receiptVerified) {
+      setError("Confirm that you independently verified the funds were received.");
+      return;
+    }
+    submitInProgress.current = true;
 
     const receiptNo = `REC-${String(Date.now()).slice(-6)}`;
 
-    onSavePayment({
-      receiptNo,
-      date,
-      partyType: "customer",
-      partyId: customerId,
-      partyName: selectedCustomer?.name || "Customer",
-      partyPhone: selectedCustomer?.phone,
-      invoiceId: invoiceId || undefined,
-      invoiceNo: selectedInvoice?.invoiceNo || undefined,
-      amount: safeAmt,
-      paymentMode,
-      reference: reference.trim() || undefined,
-      notes: notes.trim() || undefined,
-    });
+    try {
+      onSavePayment({
+        receiptNo,
+        date,
+        partyType: "customer",
+        partyId: customerId,
+        partyName: selectedCustomer?.name || "Customer",
+        partyPhone: selectedCustomer?.phone,
+        invoiceId: invoiceId || undefined,
+        invoiceNo: selectedInvoice?.invoiceNo || undefined,
+        amount: safeAmt,
+        paymentMode,
+        reference: reference.trim() || undefined,
+        notes: notes.trim() || undefined,
+        verificationStatus: "verified",
+        verificationMethod: "manual",
+        verifiedAt: new Date().toISOString(),
+      });
+    } finally {
+      submitInProgress.current = false;
+    }
   };
 
   return (
@@ -237,10 +256,23 @@ export function ReceivePaymentModal({
             />
           </div>
 
+          <label className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[12px] leading-relaxed text-amber-900">
+            <input
+              type="checkbox"
+              checked={receiptVerified}
+              onChange={(event) => setReceiptVerified(event.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-emerald-600"
+            />
+            <span>
+              I independently confirmed receipt in the merchant account or confirmed cash/card settlement. A customer-entered reference or payment screenshot alone is not proof.
+            </span>
+          </label>
+
           <div className="pt-4 border-t border-zinc-100 flex gap-2">
             <button
               type="submit"
-              className="flex-1 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[13px] transition shadow-sm"
+              disabled={!receiptVerified}
+              className="flex-1 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[13px] transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Record Payment Receipt
             </button>

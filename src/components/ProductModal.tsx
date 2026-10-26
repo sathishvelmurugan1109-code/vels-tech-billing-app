@@ -49,7 +49,7 @@ export function ProductModal({
   );
   const [price, setPrice] = useState<number | "">(product?.price !== undefined ? product.price : "");
   const [mrp, setMrp] = useState<number | "">(product?.mrp !== undefined ? product.mrp : "");
-  const [gst, setGst] = useState<number>(product?.gst !== undefined ? product.gst : 18);
+  const [gst, setGst] = useState<number | "">(product?.gst ?? "");
   const [gstType, setGstType] = useState<"exclusive" | "inclusive">(
     product?.gstType || "exclusive",
   );
@@ -83,6 +83,16 @@ export function ProductModal({
       setError("Selling price cannot be negative");
       return;
     }
+    if (
+      gst === "" ||
+      !Number.isFinite(gst) ||
+      gst < 0 ||
+      gst > 100 ||
+      !Number.isInteger(gst * 100)
+    ) {
+      setError("Enter the GST rate applicable to this product's HSN/SAC classification (0–100%).");
+      return;
+    }
 
     const selectedSupplier = suppliers.find((s) => s.id === supplierId);
     const effectiveUnit = isCustomUnit ? customUnit.trim() || "pcs" : unit;
@@ -111,7 +121,7 @@ export function ProductModal({
       price: finalPrice,
       mrp:
         typeof mrp === "number" ? mrp : mrp !== "" ? parseFloat(String(mrp)) || undefined : undefined,
-      gst: gst,
+      gst,
       gstType: gstType,
       stock: typeof stock === "number" ? stock : parseInt(String(stock)) || 0,
       openingStock:
@@ -344,18 +354,30 @@ export function ProductModal({
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-zinc-600">GST RATE</label>
-                <select
+                <label className="text-[11px] font-bold text-zinc-600">GST RATE % (HSN/SAC)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  required
+                  list="product-gst-rate-suggestions"
                   value={gst}
-                  onChange={(e) => setGst(parseInt(e.target.value))}
+                  onChange={(e) =>
+                    setGst(e.target.value === "" ? "" : Number(e.target.value))
+                  }
+                  placeholder="Enter rate, e.g. 18"
                   className="mt-1 w-full h-11 px-3 rounded-xl border border-zinc-200 text-[13px] bg-white font-semibold text-indigo-700"
-                >
+                />
+                <datalist id="product-gst-rate-suggestions">
                   {GST_RATE_OPTIONS.map((rate) => (
-                    <option key={rate} value={rate}>
-                      {rate}% {rate === 0 ? "(Exempt)" : ""}
-                    </option>
+                    <option key={rate} value={rate} />
                   ))}
-                </select>
+                </datalist>
+                <p className="mt-1 text-[10px] text-zinc-500">
+                  Confirm the applicable rate for this product's HSN/SAC code.
+                </p>
               </div>
 
               <div>

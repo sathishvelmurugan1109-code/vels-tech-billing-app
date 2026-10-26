@@ -16,6 +16,9 @@ const paymentSchema = new mongoose.Schema(
     date: { type: String, required: true },
     reference: { type: String, default: "" },
     notes: { type: String, default: "" },
+    verificationStatus: { type: String, enum: ["pending", "verified"], default: "pending" },
+    verificationMethod: { type: String, enum: ["manual", "gateway"] },
+    verifiedAt: { type: Date },
   },
   { timestamps: true }
 );

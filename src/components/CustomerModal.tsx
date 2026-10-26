@@ -76,6 +76,10 @@ export function CustomerModal({
       setError("Customer name is required");
       return;
     }
+    if (normalizeWaNumber(phone).digits10.length !== 10) {
+      setError("Enter a valid 10-digit mobile number.");
+      return;
+    }
     submitting.current = true;
 
     if (!customer) {
@@ -193,10 +197,11 @@ export function CustomerModal({
 
             <div>
               <label className="text-[11px] font-bold text-zinc-600 uppercase">
-                MOBILE / WHATSAPP NUMBER
+                MOBILE / WHATSAPP NUMBER *
               </label>
               <input
                 type="tel"
+                required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="9876543210"

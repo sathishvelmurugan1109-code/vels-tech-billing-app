@@ -162,6 +162,9 @@ export interface Payment {
   paymentMode: PaymentMode;
   reference?: string;
   notes?: string;
+  verificationStatus?: "pending" | "verified";
+  verificationMethod?: "manual" | "gateway";
+  verifiedAt?: string;
 }
 
 export type StockMovementType =

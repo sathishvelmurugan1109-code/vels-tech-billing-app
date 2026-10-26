@@ -25,11 +25,16 @@ export function isValidGstRate(rate: unknown): boolean {
   return Number.isFinite(r) && r >= 0 && r <= 100;
 }
 
-/** Normalise any input into a safe, whole-number GST rate clamped to 0…100. */
+/** Normalise any input into a safe GST rate, rounded to two decimals and clamped to 0…100. */
 export function normalizeGstRate(rate: unknown): number {
-  const r = Math.round(toNumber(rate));
+  const r = roundMoney(toNumber(rate), 2);
   if (!Number.isFinite(r)) return 0;
   return Math.min(100, Math.max(0, r));
+}
+
+/** Format a GST rate without unnecessary trailing zeroes. */
+export function formatGstRate(rate: unknown): string {
+  return normalizeGstRate(rate).toFixed(2).replace(/\.?0+$/, "");
 }
 
 /** Normalise a state name for comparison (trim + lowercase). */

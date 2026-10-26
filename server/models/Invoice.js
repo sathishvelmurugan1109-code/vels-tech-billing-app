@@ -1,5 +1,6 @@
 // server/models/Invoice.js
 const mongoose = require("mongoose");
+const { splitGstTotal } = require("../utils/gst");
 
 const invoiceItemSchema = new mongoose.Schema(
   {
@@ -50,6 +51,47 @@ const invoiceSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+invoiceSchema.pre("validate", function deriveTaxComponents() {
+  const split = splitGstTotal(
+    this.gstTotal,
+    this.businessState,
+    this.customerState,
+  );
+  this.cgst = split.cgst;
+  this.sgst = split.sgst;
+  this.igst = split.igst;
+});
+
+invoiceSchema.pre("findOneAndUpdate", async function deriveUpdatedTaxComponents() {
+  const update = this.getUpdate();
+  if (!update || Array.isArray(update)) return;
+
+  const fields = update.$set || update;
+  const needsTaxSplit = [
+    "gstTotal",
+    "businessState",
+    "customerState",
+  ].some((field) => Object.prototype.hasOwnProperty.call(fields, field));
+  if (!needsTaxSplit) return;
+
+  const current = await this.model
+    .findOne(this.getQuery())
+    .select("gstTotal businessState customerState")
+    .lean();
+  if (!current) return;
+
+  const split = splitGstTotal(
+    fields.gstTotal ?? current.gstTotal,
+    fields.businessState ?? current.businessState,
+    fields.customerState ?? current.customerState,
+  );
+  this.setUpdate(
+    update.$set
+      ? { ...update, $set: { ...update.$set, ...split } }
+      : { ...update, ...split },
+  );
+});
 
 // Unique invoice number within business scope
 invoiceSchema.index({ businessId: 1, invoiceNo: 1 }, { unique: true });

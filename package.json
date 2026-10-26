@@ -27,7 +27,7 @@
     "preview": "vite preview",
     "start": "npm --prefix server start",
     "start:server": "npm --prefix server start",
-    "dev:server": "npm --prefix server dev",
+    "dev:server": "npm --prefix server run dev",
     "test": "node --test .tmp-tests/services/__tests__/*.test.js"
   }
 }

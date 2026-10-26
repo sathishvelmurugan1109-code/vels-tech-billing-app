@@ -28,8 +28,10 @@ import {
   validateInvoiceBuild,
 } from "../services/invoiceService";
 import { todayISO } from "../services/dateService";
+import { derivePaymentStatus } from "../services/paymentService";
 import { shareInvoiceViaWhatsApp, setInvoiceLogo as setWaLogo } from "../services/whatsappService";
 import { setInvoiceLogo as setPdfLogo } from "../services/pdfService";
+import { validateStockAvailability } from "../services/stockService";
 import { normalizeWaNumber } from "../components/InvoiceRenderer";
 import type {
   Product,
@@ -49,7 +51,7 @@ export interface BillingPageProps {
   editingInvoice: Invoice | null;
   initialCustomerId?: string;
   onInitialCustomerConsumed?: () => void;
-  onSaveInvoice: (invoice: Invoice) => void;
+  onSaveInvoice: (invoice: Invoice) => void | Promise<void>;
   onOpenBarcodeScanner: () => void;
   onOpenAddProduct: (initialName?: string) => void;
   onOpenAddCustomer: (onCreated: (customerId: string) => void) => void;
@@ -79,12 +81,6 @@ export function BillingPage({
   const [date, setDate] = useState<string>(editingInvoice?.date || todayISO());
   const [items, setItems] = useState<InvoiceItem[]>(editingInvoice?.items || []);
   const [paymentMode, setPaymentMode] = useState<PaymentMode>(editingInvoice?.paymentMode || "UPI");
-  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(
-    editingInvoice?.paymentStatus || "Paid",
-  );
-  const [paidAmount, setPaidAmount] = useState<number | "">(
-    editingInvoice ? editingInvoice.paidAmount : "",
-  );
   const [notes, setNotes] = useState<string>(editingInvoice?.notes || "");
   const [terms, setTerms] = useState<string>(editingInvoice?.terms || settings.invoiceTerms);
   const [isSaving, setIsSaving] = useState(false);
@@ -98,6 +94,7 @@ export function BillingPage({
   const [error, setError] = useState("");
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const saveInProgressRef = useRef(false);
 
   // Selected customer (single canonical source of truth)
   const selectedCustomer = useMemo(
@@ -137,6 +134,12 @@ export function BillingPage({
     const customerState = selectedCustomer?.state || settings.state;
     return calculateInvoiceTotals(items, customerState, settings.state);
   }, [items, selectedCustomer, settings.state]);
+  const paymentStatus: PaymentStatus = editingInvoice
+    ? derivePaymentStatus(
+        calculation.grandTotal,
+        Math.min(editingInvoice.paidAmount, calculation.grandTotal),
+      )
+    : "Pending";
 
   // Sync logo to WhatsApp and PDF services
   setWaLogo(settings.logo || "");
@@ -188,6 +191,21 @@ export function BillingPage({
 
   // Product Add to Cart
   const addProductToInvoice = (product: Product) => {
+    if (!selectedCustomer) {
+      setError("Select a customer before adding products.");
+      return;
+    }
+    const alreadyInInvoice = editingInvoice?.items
+      .filter((item) => item.productId === product.id)
+      .reduce((total, item) => total + item.qty, 0) || 0;
+    const currentlyInCart = items
+      .filter((item) => item.productId === product.id)
+      .reduce((total, item) => total + item.qty, 0);
+    if (currentlyInCart + 1 > product.stock + alreadyInInvoice) {
+      setError(`Only ${Math.max(0, product.stock + alreadyInInvoice - currentlyInCart)} ${product.unit} of ${product.name} are available.`);
+      return;
+    }
+    setError("");
     setItems((prev) => {
       const existing = prev.find((item) => item.productId === product.id);
       if (existing) {
@@ -218,6 +236,16 @@ export function BillingPage({
       removeItem(index);
       return;
     }
+    const item = items[index];
+    const product = products.find((candidate) => candidate.id === item?.productId);
+    const alreadyInInvoice = editingInvoice?.items
+      .filter((oldItem) => oldItem.productId === item?.productId)
+      .reduce((total, oldItem) => total + oldItem.qty, 0) || 0;
+    if (product && newQty > product.stock + alreadyInInvoice) {
+      setError(`Only ${product.stock + alreadyInInvoice} ${product.unit} of ${product.name} are available.`);
+      return;
+    }
+    setError("");
     setItems((prev) =>
       prev.map((item, i) => (i === index ? { ...item, qty: newQty } : item)),
     );
@@ -321,8 +349,8 @@ export function BillingPage({
   };
 
   // Save Invoice
-  const handleSave = () => {
-    if (isSaving) return;
+  const handleSave = async () => {
+    if (isSaving || saveInProgressRef.current) return;
     setError("");
     const customerId = selectedCustomerId.trim();
     if (!customerId || !selectedCustomer || String(selectedCustomer.id) !== customerId) {
@@ -344,24 +372,25 @@ export function BillingPage({
       return;
     }
 
-    const finalPaid =
-      paymentStatus === "Paid"
-        ? calculation.grandTotal
-        : paymentStatus === "Pending"
-        ? 0
-        : typeof paidAmount === "number"
-        ? paidAmount
-        : parseFloat(String(paidAmount)) || 0;
+    const finalPaid = editingInvoice
+      ? Math.min(editingInvoice.paidAmount, calculation.grandTotal)
+      : 0;
 
     if (!Number.isFinite(finalPaid) || finalPaid < 0 || finalPaid > calculation.grandTotal) {
       setError("Amount paid must be between ₹0 and the invoice total.");
       return;
     }
-    if (
-      paymentStatus === "Partial" &&
-      (finalPaid <= 0 || finalPaid >= calculation.grandTotal)
-    ) {
-      setError("A partial payment must be greater than ₹0 and less than the invoice total.");
+    const stockProducts = products.map((product) => {
+      const previouslySold = editingInvoice?.items
+        .filter((item) => item.productId === product.id)
+        .reduce((total, item) => total + item.qty, 0) || 0;
+      return { ...product, stock: product.stock + previouslySold };
+    });
+    const stockShortages = validateStockAvailability(stockProducts, items);
+    if (stockShortages.length > 0) {
+      const shortage = stockShortages[0];
+      const product = products.find((candidate) => candidate.id === shortage.productId);
+      setError(`Insufficient stock for ${product?.name || "a selected product"}: ${shortage.available} available, ${shortage.required} required.`);
       return;
     }
 
@@ -411,12 +440,16 @@ export function BillingPage({
       return;
     }
 
-    setIsSaving(true);
     const invoiceRecord = buildInvoiceRecord(invoiceInput);
 
+    saveInProgressRef.current = true;
+    setIsSaving(true);
     try {
-      onSaveInvoice(invoiceRecord);
+      await onSaveInvoice(invoiceRecord);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Could not save the invoice.");
     } finally {
+      saveInProgressRef.current = false;
       setIsSaving(false);
     }
   };
@@ -624,8 +657,8 @@ export function BillingPage({
                   </div>
                   <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">
                     {selectedCustomer.state === settings.state
-                      ? "CGST + SGST (Intra-state)"
-                      : "IGST (Inter-state)"}
+                      ? "Intra-state GST"
+                      : "Inter-state GST"}
                   </span>
                 </div>
 
@@ -675,14 +708,16 @@ export function BillingPage({
                 <button
                   type="button"
                   onClick={onOpenBarcodeScanner}
-                  className="h-8 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[12px] font-semibold flex items-center gap-1.5 transition"
+                  disabled={!selectedCustomer}
+                  className="h-8 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[12px] font-semibold flex items-center gap-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Barcode className="h-4 w-4" /> Scan Barcode
                 </button>
                 <button
                   type="button"
                   onClick={() => onOpenAddProduct(productSearch)}
-                  className="h-8 px-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-[12px] font-semibold flex items-center gap-1.5 transition"
+                  disabled={!selectedCustomer}
+                  className="h-8 px-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-[12px] font-semibold flex items-center gap-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <PackagePlus className="h-3.5 w-3.5" /> + Quick Product
                 </button>
@@ -697,6 +732,7 @@ export function BillingPage({
                 type="text"
                 value={productSearch}
                 onChange={(e) => setProductSearch(e.target.value)}
+                disabled={!selectedCustomer}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && filteredSearchProducts.length > 0) {
                     e.preventDefault();
@@ -705,8 +741,11 @@ export function BillingPage({
                   }
                 }}
                 placeholder="Search by product name, barcode, SKU or HSN..."
-                className="w-full h-11 pl-10 pr-4 rounded-xl border border-zinc-200 bg-zinc-50/50 text-[13px] font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+                className="w-full h-11 pl-10 pr-4 rounded-xl border border-zinc-200 bg-zinc-50/50 text-[13px] font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
               />
+              {!selectedCustomer && (
+                <p className="mt-2 text-[12px] text-zinc-500">Select a customer above to start adding products.</p>
+              )}
               {filteredSearchProducts.length > 0 && (
                 <div className="absolute z-20 top-12 left-0 right-0 rounded-2xl bg-white border border-zinc-200 shadow-2xl overflow-hidden divide-y divide-zinc-100 max-h-64 overflow-y-auto">
                   {filteredSearchProducts.map((p) => (
@@ -719,7 +758,7 @@ export function BillingPage({
                       <div>
                         <div className="font-semibold text-[13px] text-zinc-900">{p.name}</div>
                         <div className="text-[11px] text-zinc-400 mono">
-                          HSN: {p.hsn} • Stock: {p.stock} {p.unit}
+                          HSN: {p.hsn} • GST: {p.gst}% • Stock: {p.stock} {p.unit}
                           {p.barcode ? ` • Barcode: ${p.barcode}` : ""}
                         </div>
                       </div>
@@ -743,7 +782,8 @@ export function BillingPage({
                   key={p.id}
                   type="button"
                   onClick={() => addProductToInvoice(p)}
-                  className="px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-[11px] font-medium transition"
+                  disabled={!selectedCustomer}
+                  className="px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-[11px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   + {p.name} ({formatCurrency(p.price)})
                 </button>
@@ -784,21 +824,23 @@ export function BillingPage({
                     <th className="px-3 py-3 text-center w-32">Qty</th>
                     <th className="px-3 py-3 text-right">Price</th>
                     <th className="px-3 py-3 text-center w-24">Disc %</th>
-                    <th className="px-3 py-3 text-center">GST</th>
-                    <th className="px-4 py-3 text-right">Total</th>
+                    <th className="px-3 py-3 text-right">GST Amount</th>
+                    <th className="px-4 py-3 text-right">Total Amount</th>
                     <th className="px-3 py-3 text-center w-10"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
                   {items.map((it, idx) => {
                     const lineTotals = calculateLine(it, calculation.taxType);
-                    const { gross, discount: disc, taxableAmount: taxable, gstAmount: gstAmt, lineTotal: total } = lineTotals;
+                    const { gstAmount: gstAmt, lineTotal: total } = lineTotals;
 
                     return (
                       <tr key={idx} className="hover:bg-zinc-50/50">
                         <td className="px-4 py-3">
                           <div className="font-semibold text-zinc-900">{it.name}</div>
-                          <div className="text-[11px] text-zinc-400 mono">HSN: {it.hsn}</div>
+                          <div className="text-[11px] text-zinc-400 mono">
+                            HSN: {it.hsn} · GST {it.gst}%
+                          </div>
                         </td>
                         <td className="px-3 py-3">
                           <div className="flex items-center justify-center gap-1">
@@ -844,7 +886,7 @@ export function BillingPage({
                           />
                         </td>
                         <td className="px-3 py-3 text-center mono font-medium text-zinc-600">
-                          {it.gst}%
+                          {formatCurrency(gstAmt)}
                         </td>
                         <td className="px-4 py-3 text-right mono font-bold text-zinc-900">
                           {formatCurrency(total)}
@@ -869,7 +911,7 @@ export function BillingPage({
             <div className="md:hidden divide-y divide-zinc-100">
               {items.map((it, idx) => {
                 const lineTotals = calculateLine(it, calculation.taxType);
-                const { gross, discount: disc, taxableAmount: taxable, gstAmount: gstAmt, lineTotal: total } = lineTotals;
+                const { gstAmount: gstAmt, lineTotal: total } = lineTotals;
 
                 return (
                   <div key={idx} className="p-3.5 space-y-2">
@@ -918,7 +960,11 @@ export function BillingPage({
                       </div>
 
                       <div className="text-right">
-                        <div className="text-[10px] text-zinc-400 uppercase">Item Total</div>
+                        <div className="text-[10px] text-zinc-400 uppercase">GST Amount</div>
+                        <div className="font-semibold mono text-[13px] text-zinc-700">
+                          {formatCurrency(gstAmt)}
+                        </div>
+                        <div className="text-[10px] text-zinc-400 uppercase mt-1">Total Amount</div>
                         <div className="font-extrabold mono text-[15px] text-zinc-900">
                           {formatCurrency(total)}
                         </div>
@@ -991,23 +1037,12 @@ export function BillingPage({
                 </span>
               </div>
 
-              {calculation.cgst > 0 ? (
-                <>
-                  <div className="flex justify-between text-[12px] text-zinc-400">
-                    <span>CGST</span>
-                    <span className="mono">{formatCurrency(calculation.cgst)}</span>
-                  </div>
-                  <div className="flex justify-between text-[12px] text-zinc-400">
-                    <span>SGST</span>
-                    <span className="mono">{formatCurrency(calculation.sgst)}</span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex justify-between text-[12px] text-zinc-400">
-                  <span>IGST</span>
-                  <span className="mono">{formatCurrency(calculation.igst)}</span>
-                </div>
-              )}
+              <div className="flex justify-between text-zinc-400">
+                <span>GST Amount</span>
+                <span className="mono font-medium text-white">
+                  {formatCurrency(calculation.gstTotal)}
+                </span>
+              </div>
 
               {calculation.roundOff !== 0 && (
                 <div className="flex justify-between text-[12px] text-zinc-400">
@@ -1020,7 +1055,7 @@ export function BillingPage({
               )}
 
               <div className="border-t border-zinc-800 pt-3 flex justify-between text-[20px] font-extrabold text-white">
-                <span>Grand Total</span>
+                <span>Total Amount</span>
                 <span className="mono">{formatCurrency(calculation.grandTotal)}</span>
               </div>
             </div>
@@ -1042,7 +1077,6 @@ export function BillingPage({
                     type="button"
                     onClick={() => {
                       setPaymentMode(m);
-                      if (m === "Credit") setPaymentStatus("Pending");
                     }}
                     className={`h-11 rounded-xl flex items-center gap-2 px-3 text-[12px] font-semibold transition ${
                       paymentMode === m
@@ -1056,43 +1090,9 @@ export function BillingPage({
                 ))}
               </div>
 
-              {/* Status & Partial Paid */}
-              <div className="grid grid-cols-3 gap-1.5 pt-1">
-                {(["Paid", "Pending", "Partial"] as const).map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setPaymentStatus(s)}
-                    className={`h-9 rounded-xl text-[12px] font-bold transition ${
-                      paymentStatus === s
-                        ? "bg-white text-zinc-900 shadow-sm"
-                        : "bg-zinc-800 text-zinc-400 hover:text-white"
-                    }`}
-                  >
-                    {s}
-                  </button>
-                ))}
+              <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-[12px] leading-relaxed text-amber-100">
+                Payment status: <strong>{paymentStatus}</strong>. Showing a UPI QR does not verify payment. Record a receipt only after independently confirming the funds were received.
               </div>
-
-              {paymentStatus === "Partial" && (
-                <div>
-                  <label className="text-[11px] font-bold text-zinc-400 uppercase">
-                    Paid Amount (₹)
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={paidAmount}
-                    onChange={(e) =>
-                      setPaidAmount(
-                        e.target.value === "" ? "" : parseFloat(e.target.value) || 0,
-                      )
-                    }
-                    placeholder="Enter paid amount"
-                    className="mt-1 w-full h-10 px-3 rounded-xl bg-zinc-800 text-white border border-zinc-700 text-[13px] mono focus:outline-none"
-                  />
-                </div>
-              )}
             </div>
 
             {/* Notes */}
