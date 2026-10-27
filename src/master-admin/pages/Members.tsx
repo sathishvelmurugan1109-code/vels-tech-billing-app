@@ -3,6 +3,8 @@ import { Search, Download, Power, Eye, ChevronLeft, ChevronRight } from "lucide-
 import { api, type Business } from "../api";
 import Detail from "./Detail";
 
+declare const __VITE_API_URL__: string;
+
 const PAGE_SIZE = 20;
 
 export default function Members({ onChanged }: { onChanged: () => void }) {
@@ -52,7 +54,7 @@ export default function Members({ onChanged }: { onChanged: () => void }) {
 
   function exportCsv() {
     const token = localStorage.getItem("vels_admin_token");
-    const base = (import.meta as any).env?.VITE_API_URL || "http://localhost:5000";
+    const base = __VITE_API_URL__;
     fetch(`${base}/api/businesses/export/csv`, {
       headers: { Authorization: `Bearer ${token}` },
     }).then(async (r) => {

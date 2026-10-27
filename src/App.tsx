@@ -25,10 +25,7 @@ import {
   Check,
   RotateCcw,
   SlidersHorizontal,
-  ChevronRight,
   MoreHorizontal,
-  Loader2,
-  LogOut,
 } from "lucide-react";
 
 // Domain Types
@@ -104,8 +101,6 @@ import { PaymentsPage } from "./pages/PaymentsPage";
 import { ExpensesPage } from "./pages/ExpensesPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { SettingsPage } from "./pages/SettingsPage";
-import LoginPage from "./pages/LoginPage";
-import { authService } from "./services/authService";
 import { api } from "./services/apiService";
 
 // Seed fallbacks when localStorage is initially empty
@@ -196,91 +191,8 @@ export type AppView =
   | "settings";
 
 export default function App() {
-  // --- Authentication State ---
-  const [authChecking, setAuthChecking] = useState(true);
-  const [authenticated, setAuthenticated] = useState(() =>
-    authService.isAuthenticated(),
-  );
-  const [dataLoaded, setDataLoaded] = useState(false);
-
-  // Restore session on mount: verify token, then load data
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const token = authService.getToken();
-        if (!token) {
-          if (!cancelled) {
-            setAuthenticated(false);
-            setAuthChecking(false);
-          }
-          return;
-        }
-
-        const ok = await authService.verifySession();
-        if (cancelled) return;
-        if (!ok) {
-          if (!cancelled) {
-            setAuthenticated(false);
-            setAuthChecking(false);
-          }
-          return;
-        }
-
-        if (!cancelled) {
-          setAuthenticated(true);
-          setAuthChecking(false);
-        }
-
-        // Load data from MongoDB when authenticated
-        try {
-          const [products, customers, suppliers, invoices, purchases, payments, stockMovements, expenses, settings] =
-            await Promise.all([
-              api.products.list().catch(() => []),
-              api.customers.list().catch(() => []),
-              api.suppliers.list().catch(() => []),
-              api.invoices.list().catch(() => []),
-              api.purchases.list().catch(() => []),
-              api.payments.list().catch(() => []),
-              api.stockMovements.list().catch(() => []),
-              api.expenses.list().catch(() => []),
-              api.getSettings().catch(() => null),
-            ]);
-
-          if (cancelled) return;
-
-          if (Array.isArray(products) && products.length > 0) setProducts(products as any);
-          if (Array.isArray(customers) && customers.length > 0) setCustomers(customers as any);
-          if (Array.isArray(suppliers) && suppliers.length > 0) setSuppliers(suppliers as any);
-          if (Array.isArray(invoices) && invoices.length > 0) setInvoices(invoices as any);
-          if (Array.isArray(purchases) && purchases.length > 0) setPurchases(purchases as any);
-          if (Array.isArray(payments) && payments.length > 0) setPayments(payments as any);
-          if (Array.isArray(stockMovements) && stockMovements.length > 0) setStockMovements(stockMovements as any);
-          if (Array.isArray(expenses) && expenses.length > 0) setExpenses(expenses as any);
-          if (settings && typeof settings === "object") {
-            setSettings((prev) => ({ ...prev, ...settings }));
-          }
-        } catch (err) {
-          console.error("Failed to load data from API:", err);
-        } finally {
-          if (!cancelled) setDataLoaded(true);
-        }
-      } catch (err) {
-        console.error("Session restoration failed:", err);
-        if (!cancelled) setAuthChecking(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const handleLogout = () => {
-    authService.logout();
-    setAuthenticated(false);
-    setAuthChecking(false);
-  };
+  // --- App State (offline-first, no auth gate) ---
+  const [dataLoaded, setDataLoaded] = useState(true);
 
   // --- Persistent State ---
   const [products, setProducts] = useState<Product[]>(() =>
@@ -441,7 +353,8 @@ export default function App() {
   const isMongoId = (v: any) => typeof v === "string" && /^[a-f0-9]{24}$/i.test(v);
 
   const syncArrayToApi = async (resource: any, items: any[]) => {
-    if (!authService.isAuthenticated()) return;
+    // Offline-first: cloud sync disabled (no auth)
+    return;
     for (const item of items) {
       try {
         if (isMongoId(item?.id)) {
@@ -472,7 +385,7 @@ export default function App() {
           syncArrayToApi(api.stockMovements, stockMovements),
           syncArrayToApi(api.expenses, expenses),
         ]);
-        if (authService.isAuthenticated()) {
+        if (false) {
           await api.updateSettings(settings).catch(() => {});
         }
       } catch (e) {
@@ -533,6 +446,71 @@ export default function App() {
   }, []);
 
   // --- Handlers: Invoice Operations ---
+  const handleCreateInvoiceDraft = async (invoice: Invoice): Promise<Invoice> => {
+    const saved = await api.invoices.createDraft(invoice);
+    setInvoices((prev) => {
+      const existingIndex = prev.findIndex(
+        (candidate) => candidate.id === saved.id || candidate.invoiceNo === saved.invoiceNo,
+      );
+      if (existingIndex < 0) return [...prev, saved];
+      return prev.map((candidate, index) => (index === existingIndex ? saved : candidate));
+    });
+    return saved as Invoice;
+  };
+
+  const handleConfirmManualPayment = async (
+    draft: Invoice,
+  ): Promise<{ invoice: Invoice; payment: Payment }> => {
+    const { invoice, payment } = await api.invoices.confirmManualPayment(draft.id);
+    const savedInvoice = invoice as Invoice;
+    const savedPayment: Payment = {
+      id: payment.id,
+      receiptNo: payment.invoiceNo,
+      date: payment.date,
+      partyType: "customer",
+      partyId: payment.customerId,
+      partyName: payment.customerName,
+      invoiceId: payment.invoiceId,
+      invoiceNo: payment.invoiceNo,
+      amount: payment.amount,
+      paymentMode: "UPI",
+      notes: payment.notes,
+      verificationStatus: payment.verificationStatus,
+      verificationMethod: payment.verificationMethod,
+      manualConfirmationBy: payment.manualConfirmationBy,
+      manualConfirmedAt: payment.manualConfirmedAt,
+    };
+
+    setInvoices((prev) =>
+      prev.map((candidate) => (candidate.id === savedInvoice.id ? savedInvoice : candidate)),
+    );
+    setPayments((prev) =>
+      prev.some((candidate) => candidate.id === savedPayment.id)
+        ? prev.map((candidate) => (candidate.id === savedPayment.id ? savedPayment : candidate))
+        : [savedPayment, ...prev],
+    );
+
+    const mutation = planInvoiceMutation(null, savedInvoice, { businessState: settings.state });
+    setProducts((prev) => applyStockChanges(prev, mutation.stockChanges));
+    mutation.stockChanges.forEach((change) => {
+      const product = products.find((candidate) => candidate.id === change.productId);
+      const movement: StockMovement = {
+        id: `sm_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        date: savedInvoice.date,
+        productId: change.productId,
+        productName: product?.name || "Product",
+        type: "Sale",
+        quantity: change.delta,
+        reference: `Invoice ${savedInvoice.invoiceNo}`,
+        previousStock: product?.stock || 0,
+        newStock: Math.max(0, (product?.stock || 0) + change.delta),
+      };
+      setStockMovements((prev) => [movement, ...prev]);
+    });
+
+    return { invoice: savedInvoice, payment: savedPayment };
+  };
+
   const handleSaveInvoice = (invoice: Invoice) => {
     const oldInvoice = editingInvoiceRecord
       ? invoices.find((i) => i.id === editingInvoiceRecord.id) ?? null
@@ -937,28 +915,6 @@ export default function App() {
     return Array.from(set);
   }, [products]);
 
-  // Auth gate: restore session, show login page, or render billing app
-  if (authChecking) {
-    return (
-      <div className="min-h-screen bg-[#070b16] flex items-center justify-center">
-        <div className="flex items-center gap-2 text-slate-300">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          <span>Restoring session…</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (!authenticated) {
-    return (
-      <LoginPage
-        onLoginSuccess={() => {
-          setAuthenticated(true);
-        }}
-      />
-    );
-  }
-
   return (
     <div className="min-h-screen bg-[#f8fafc] text-zinc-900 font-sans selection:bg-indigo-100">
       {/* Print Stylesheet */}
@@ -1242,12 +1198,6 @@ export default function App() {
                   <Plus className="h-4 w-4" /> New Bill
                 </button>
               )}
-              <button
-                onClick={handleLogout}
-                className="h-10 rounded-xl border border-red-100 bg-red-50 text-red-800 px-3 text-xs font-bold hover:bg-red-100 transition-colors"
-              >
-                <LogOut className="h-4 w-4 mr-1.5" /> Sign out
-              </button>
             </div>
           </div>
 
@@ -1284,6 +1234,8 @@ export default function App() {
                initialCustomerId={billingInitialCustomerId}
               onInitialCustomerConsumed={() => setBillingInitialCustomerId("")}
               onSaveInvoice={handleSaveInvoice}
+              onCreateInvoiceDraft={handleCreateInvoiceDraft}
+              onConfirmManualPayment={handleConfirmManualPayment}
               onOpenBarcodeScanner={() => setShowBarcodeScannerModal(true)}
               onOpenAddProduct={(name) => {
                 setProductInitialName(name || "");

@@ -43,6 +43,8 @@ const invoiceSchema = new mongoose.Schema(
     paymentMode: { type: String, default: "Cash" },
     paymentStatus: { type: String, enum: ["Paid", "Partial", "Pending", "Cancelled"], default: "Pending" },
     status: { type: String, enum: ["Draft", "Saved", "Paid", "Partial", "Pending", "Cancelled"], default: "Saved" },
+    manualPaymentConfirmedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    manualPaymentConfirmedAt: { type: Date },
     businessState: { type: String, default: "" },
     paidAmount: { type: Number, default: 0 },
     notes: { type: String, default: "" },

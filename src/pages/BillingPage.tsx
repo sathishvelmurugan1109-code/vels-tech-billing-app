@@ -19,6 +19,9 @@ import {
   PackagePlus,
   X,
   Download,
+  Printer,
+  Share2,
+  Loader2,
 } from "lucide-react";
 import { formatCurrency, roundMoney, toNumber } from "../services/money";
 import {
@@ -29,6 +32,7 @@ import {
 } from "../services/invoiceService";
 import { todayISO } from "../services/dateService";
 import { derivePaymentStatus } from "../services/paymentService";
+import { buildUpiUri, generateQrDataUrl } from "../services/qrService";
 import { shareInvoiceViaWhatsApp, setInvoiceLogo as setWaLogo } from "../services/whatsappService";
 import { setInvoiceLogo as setPdfLogo } from "../services/pdfService";
 import { validateStockAvailability } from "../services/stockService";
@@ -41,6 +45,7 @@ import type {
   CompanySettings,
   PaymentMode,
   PaymentStatus,
+  Payment,
 } from "../types";
 
 export interface BillingPageProps {
@@ -52,6 +57,8 @@ export interface BillingPageProps {
   initialCustomerId?: string;
   onInitialCustomerConsumed?: () => void;
   onSaveInvoice: (invoice: Invoice) => void | Promise<void>;
+  onCreateInvoiceDraft: (invoice: Invoice) => Promise<Invoice>;
+  onConfirmManualPayment: (invoice: Invoice) => Promise<{ invoice: Invoice; payment: Payment }>;
   onOpenBarcodeScanner: () => void;
   onOpenAddProduct: (initialName?: string) => void;
   onOpenAddCustomer: (onCreated: (customerId: string) => void) => void;
@@ -67,6 +74,8 @@ export function BillingPage({
   initialCustomerId,
   onInitialCustomerConsumed,
   onSaveInvoice,
+  onCreateInvoiceDraft,
+  onConfirmManualPayment,
   onOpenBarcodeScanner,
   onOpenAddProduct,
   onOpenAddCustomer,
@@ -84,6 +93,11 @@ export function BillingPage({
   const [notes, setNotes] = useState<string>(editingInvoice?.notes || "");
   const [terms, setTerms] = useState<string>(editingInvoice?.terms || settings.invoiceTerms);
   const [isSaving, setIsSaving] = useState(false);
+  const [draftInvoice, setDraftInvoice] = useState<Invoice | null>(null);
+  const [paymentStep, setPaymentStep] = useState(false);
+  const [showPaymentConfirmation, setShowPaymentConfirmation] = useState(false);
+  const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
+  const [confirmedInvoice, setConfirmedInvoice] = useState<Invoice | null>(null);
 
   // Search & suggestions
   const [productSearch, setProductSearch] = useState("");
@@ -95,6 +109,7 @@ export function BillingPage({
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const saveInProgressRef = useRef(false);
+  const confirmationInProgressRef = useRef(false);
 
   // Selected customer (single canonical source of truth)
   const selectedCustomer = useMemo(
@@ -118,6 +133,7 @@ export function BillingPage({
   // Invoice Number generation
   const invoiceNo = useMemo(() => {
     if (editingInvoice) return editingInvoice.invoiceNo;
+    if (draftInvoice) return draftInvoice.invoiceNo;
     const prefix = settings.invoicePrefix || "VELS-";
     const startNum = settings.startingInvoiceNo || 1;
     const maxNumber = invoices.reduce((max, inv) => {
@@ -127,7 +143,7 @@ export function BillingPage({
     }, startNum - 1);
 
     return `${prefix}${String(maxNumber + 1).padStart(4, "0")}`;
-  }, [editingInvoice, invoices, settings.invoicePrefix, settings.startingInvoiceNo]);
+  }, [draftInvoice, editingInvoice, invoices, settings.invoicePrefix, settings.startingInvoiceNo]);
 
   // Authoritative Calculation via calculation engine
   const calculation = useMemo(() => {
@@ -363,6 +379,10 @@ export function BillingPage({
       setError("Please add at least one product to the invoice.");
       return;
     }
+    if (!editingInvoice && paymentMode === "UPI" && !settings.upiId.trim()) {
+      setError("Add a UPI ID in Settings before generating a payment QR code.");
+      return;
+    }
 
     const effectivePhone = customerPhone.trim() || selectedCustomer.phone;
     const phoneCheck = normalizeWaNumber(effectivePhone);
@@ -432,7 +452,7 @@ export function BillingPage({
       paidAmount: finalPaid,
       notes,
       terms,
-      status: "Saved" as const,
+      status: !editingInvoice && paymentMode === "UPI" ? ("Draft" as const) : ("Saved" as const),
     };
     const validationErrors = validateInvoiceBuild(invoiceInput);
     if (validationErrors.length) {
@@ -445,7 +465,14 @@ export function BillingPage({
     saveInProgressRef.current = true;
     setIsSaving(true);
     try {
-      await onSaveInvoice(invoiceRecord);
+      if (!editingInvoice && paymentMode === "UPI") {
+        const savedDraft = await onCreateInvoiceDraft(invoiceRecord as Invoice);
+        setDraftInvoice(savedDraft);
+        setConfirmedInvoice(null);
+        setPaymentStep(true);
+      } else {
+        await onSaveInvoice(invoiceRecord as Invoice);
+      }
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Could not save the invoice.");
     } finally {
@@ -468,6 +495,215 @@ export function BillingPage({
       )
       .slice(0, 10);
   }, [products, productSearch]);
+
+  const paymentUri = draftInvoice
+    ? buildUpiUri({
+        upiId: settings.upiId,
+        upiName: settings.upiName || settings.companyName,
+        amount: draftInvoice.grandTotal,
+        note: draftInvoice.invoiceNo,
+      })
+    : "";
+  const paymentQr = useMemo(
+    () => (paymentUri ? generateQrDataUrl(paymentUri, 240) : ""),
+    [paymentUri],
+  );
+
+  const confirmManualPayment = async () => {
+    if (!draftInvoice || confirmationInProgressRef.current) return;
+    confirmationInProgressRef.current = true;
+    setIsConfirmingPayment(true);
+    setError("");
+    try {
+      const result = await onConfirmManualPayment(draftInvoice);
+      setDraftInvoice(result.invoice);
+      setConfirmedInvoice(result.invoice);
+      setShowPaymentConfirmation(false);
+    } catch (confirmationError) {
+      setError(
+        confirmationError instanceof Error
+          ? confirmationError.message
+          : "Could not save the payment. The bill is still available to retry.",
+      );
+    } finally {
+      confirmationInProgressRef.current = false;
+      setIsConfirmingPayment(false);
+    }
+  };
+
+  const downloadFinalInvoice = async () => {
+    if (!confirmedInvoice) return;
+    try {
+      const { downloadBlob, generateInvoicePdfBlob, openInvoiceForPrint } =
+        await import("../services/pdfService");
+      const pdf = await generateInvoicePdfBlob(confirmedInvoice, settings);
+      if (pdf) downloadBlob(pdf, `${confirmedInvoice.invoiceNo}.pdf`);
+      else openInvoiceForPrint(confirmedInvoice, settings);
+    } catch (pdfError) {
+      setError(pdfError instanceof Error ? pdfError.message : "Could not generate the invoice PDF.");
+    }
+  };
+
+  const printFinalInvoice = async () => {
+    if (!confirmedInvoice) return;
+    try {
+      const { openInvoiceForPrint } = await import("../services/pdfService");
+      openInvoiceForPrint(confirmedInvoice, settings);
+    } catch (printError) {
+      setError(printError instanceof Error ? printError.message : "Could not open the invoice for printing.");
+    }
+  };
+
+  const shareFinalInvoice = async () => {
+    if (!confirmedInvoice) return;
+    try {
+      const result = await shareInvoiceViaWhatsApp(confirmedInvoice, settings);
+      if (result.method === "failed" || result.method === "download-then-wa") {
+        alert(result.message);
+      }
+    } catch (shareError) {
+      setError(shareError instanceof Error ? shareError.message : "Could not share the invoice.");
+    }
+  };
+
+  if (paymentStep && draftInvoice) {
+    return (
+      <div className="mx-auto max-w-xl pb-24 md:pb-6">
+        <section className="rounded-[24px] border border-zinc-200 bg-white p-5 shadow-lg md:p-7">
+          <div className="text-center">
+            {confirmedInvoice ? (
+              <>
+                <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-emerald-100 text-emerald-700">
+                  <Check className="h-6 w-6" />
+                </div>
+                <h2 className="text-xl font-extrabold text-zinc-900">Payment received</h2>
+                <p role="status" className="mt-1 text-sm text-zinc-600">
+                  Invoice {confirmedInvoice.invoiceNo} is finalized and marked Paid.
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-xl font-extrabold text-zinc-900">Complete UPI payment</h2>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Invoice {draftInvoice.invoiceNo} · {draftInvoice.customerName}
+                </p>
+              </>
+            )}
+          </div>
+
+          <div className="my-5 rounded-2xl bg-zinc-50 p-4 text-center">
+            <div className="text-xs font-bold uppercase tracking-wide text-zinc-500">
+              Total amount payable
+            </div>
+            <div className="mt-1 text-3xl font-extrabold text-zinc-900">
+              {formatCurrency(draftInvoice.grandTotal)}
+            </div>
+            <div className="mt-2 text-xs font-semibold text-indigo-700">
+              Payment method: UPI / Manual Confirmation
+            </div>
+          </div>
+
+          {!confirmedInvoice && (
+            <>
+              {paymentQr ? (
+                <img
+                  src={paymentQr}
+                  alt={`UPI QR code for ${formatCurrency(draftInvoice.grandTotal)}`}
+                  className="mx-auto h-60 w-60 rounded-xl border border-zinc-200 bg-white p-2"
+                />
+              ) : (
+                <div role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+                  Add a UPI ID in Settings before generating a payment QR code.
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setShowPaymentConfirmation(true)}
+                disabled={!paymentQr || isConfirmingPayment}
+                className="mt-4 h-14 w-full rounded-xl bg-emerald-600 text-lg font-extrabold text-white shadow-md transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Received
+              </button>
+              <p className="mt-2 text-center text-xs text-zinc-500">
+                Click only after you have actually received the payment.
+              </p>
+            </>
+          )}
+
+          {error && (
+            <div role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800">
+              {error}
+            </div>
+          )}
+
+          {confirmedInvoice && (
+            <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <button type="button" onClick={downloadFinalInvoice} className="flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-bold text-white">
+                <Download className="h-4 w-4" /> Download PDF
+              </button>
+              <button type="button" onClick={printFinalInvoice} className="flex h-11 items-center justify-center gap-2 rounded-xl border border-zinc-300 text-sm font-bold text-zinc-800">
+                <Printer className="h-4 w-4" /> Print Bill
+              </button>
+              <button type="button" onClick={shareFinalInvoice} className="flex h-11 items-center justify-center gap-2 rounded-xl border border-zinc-300 text-sm font-bold text-zinc-800">
+                <Share2 className="h-4 w-4" /> Share Invoice
+              </button>
+            </div>
+          )}
+
+          {!confirmedInvoice && (
+            <button
+              type="button"
+              disabled={isConfirmingPayment}
+              onClick={() => {
+                setError("");
+                setPaymentStep(false);
+                setShowPaymentConfirmation(false);
+              }}
+              className="mt-4 h-11 w-full rounded-xl border border-zinc-300 font-semibold text-zinc-700 disabled:opacity-50"
+            >
+              Cancel and return to bill
+            </button>
+          )}
+        </section>
+
+        {showPaymentConfirmation && (
+          <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
+            <div role="dialog" aria-modal="true" aria-labelledby="payment-confirm-title" className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+              <h3 id="payment-confirm-title" className="text-lg font-extrabold text-zinc-900">
+                Confirm payment received
+              </h3>
+              <p className="mt-2 text-sm text-zinc-600">
+                Have you received the payment of {formatCurrency(draftInvoice.grandTotal)}?
+              </p>
+              <div className="mt-5 flex gap-3">
+                <button
+                  type="button"
+                  disabled={isConfirmingPayment}
+                  onClick={() => setShowPaymentConfirmation(false)}
+                  className="h-11 flex-1 rounded-xl border border-zinc-300 font-bold text-zinc-700 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isConfirmingPayment}
+                  onClick={confirmManualPayment}
+                  className="h-11 flex-1 rounded-xl bg-emerald-600 font-bold text-white disabled:opacity-60"
+                >
+                  {isConfirmingPayment ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Saving...
+                    </span>
+                  ) : "Confirm"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5 pb-24 md:pb-6">
@@ -1090,9 +1326,6 @@ export function BillingPage({
                 ))}
               </div>
 
-              <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-[12px] leading-relaxed text-amber-100">
-                Payment status: <strong>{paymentStatus}</strong>. Showing a UPI QR does not verify payment. Record a receipt only after independently confirming the funds were received.
-              </div>
             </div>
 
             {/* Notes */}
@@ -1117,7 +1350,13 @@ export function BillingPage({
               className="hidden md:block w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-extrabold text-[14px] flex items-center justify-center gap-2 transition shadow-lg"
             >
               <Save className="h-5 w-5" />
-              {isSaving ? "Saving..." : editingInvoice ? "Update Invoice" : "Save & Generate Invoice"}
+              {isSaving
+                ? "Saving..."
+                : editingInvoice
+                  ? "Update Invoice"
+                  : paymentMode === "UPI"
+                    ? "Generate Bill / Proceed to Payment"
+                    : "Save & Generate Invoice"}
             </button>
           </div>
         </div>
@@ -1139,7 +1378,13 @@ export function BillingPage({
           className="h-12 px-6 rounded-xl bg-indigo-600 active:bg-indigo-700 disabled:opacity-60 text-white font-bold text-[14px] flex items-center gap-2 shadow-lg"
         >
           <Save className="h-4 w-4" />
-          <span>{isSaving ? "Saving..." : "Save Bill"}</span>
+          <span>
+            {isSaving
+              ? "Saving..."
+              : !editingInvoice && paymentMode === "UPI"
+                ? "Proceed to Payment"
+                : "Save Bill"}
+          </span>
         </button>
       </div>
     </div>

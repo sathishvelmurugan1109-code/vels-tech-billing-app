@@ -27,8 +27,11 @@ export type Stats = {
   monthlyGrowth: { month: string; count: number }[];
 };
 
-const env = (import.meta as any).env || {};
-const API = env.VITE_MASTER_ADMIN_API_URL || env.VITE_API_URL || "http://localhost:5000";
+declare const __VITE_API_URL__: string;
+declare const __VITE_MASTER_ADMIN_API_URL__: string;
+declare const __VITE_IS_DEV__: boolean;
+
+const API = __VITE_MASTER_ADMIN_API_URL__ || __VITE_API_URL__;
 
 function headers() {
   const token = localStorage.getItem("vels_admin_token");
@@ -37,7 +40,7 @@ function headers() {
 
 async function req(path: string, init?: RequestInit) {
   const method = init?.method || "GET";
-  if (env.DEV) {
+  if (__VITE_IS_DEV__) {
     console.log(`[MASTER ADMIN] API: ${API} | Endpoint: ${path} | Method: ${method}`);
   }
 

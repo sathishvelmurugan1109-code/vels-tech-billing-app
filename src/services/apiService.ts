@@ -10,8 +10,9 @@ declare const __VITE_API_URL__: string | undefined;
 // Development (mobile): VITE_API_URL=http://YOUR_LAN_IP:5000
 // Production: VITE_API_URL=https://api.your-domain.com
 const API_BASE =
-  (typeof __VITE_API_URL__ !== "undefined" && __VITE_API_URL__) ||
-  "http://localhost:5000";
+  typeof __VITE_API_URL__ !== "undefined"
+    ? __VITE_API_URL__
+    : "";
 
 function getHeaders(extra: Record<string, string> = {}): Record<string, string> {
   const headers: Record<string, string> = {
@@ -105,6 +106,10 @@ export const api = {
     list: () => request("/api/invoices"),
     get: (id: string) => request(`/api/invoices/${id}`),
     create: (data: any) => request("/api/invoices", { method: "POST", body: JSON.stringify(data) }),
+    createDraft: (data: any) =>
+      request("/api/invoices/drafts", { method: "POST", body: JSON.stringify(data) }),
+    confirmManualPayment: (id: string) =>
+      request(`/api/invoices/${id}/manual-payment`, { method: "POST", body: "{}" }),
     update: (id: string, data: any) => request(`/api/invoices/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     remove: (id: string) => request(`/api/invoices/${id}`, { method: "DELETE" }),
   },

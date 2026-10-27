@@ -12,8 +12,9 @@ declare const __VITE_API_URL__: string | undefined;
 // Development (mobile): VITE_API_URL=http://YOUR_LAN_IP:5000
 // Production: VITE_API_URL=https://api.your-domain.com
 const API_BASE =
-  (typeof __VITE_API_URL__ !== "undefined" && __VITE_API_URL__) ||
-  "http://localhost:5000";
+  typeof __VITE_API_URL__ !== "undefined"
+    ? __VITE_API_URL__
+    : "";
 
 const TOKEN_KEY = "vels_billing_token";
 

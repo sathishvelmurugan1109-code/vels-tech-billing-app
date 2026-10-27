@@ -4,12 +4,15 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const path = require("path");
 
-dotenv.config({ path: path.join(__dirname, ".env") });
+if (process.env.NODE_ENV !== "production") {
+  dotenv.config({ path: path.join(__dirname, ".env") });
+}
 
 const { connectDB } = require("./config/db");
 const { authenticate } = require("./middleware/auth");
 const authRoutes = require("./routes/auth");
 const businessRoutes = require("./routes/business");
+const invoiceRoutes = require("./routes/invoices");
 const createCrudRoutes = require("./routes/crudFactory");
 
 // Models
@@ -35,8 +38,13 @@ const defaultAllowedOrigins = [
 const allowedOrigins = [
   ...new Set([
     ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : []),
+    process.env.VERCEL_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
     ...defaultAllowedOrigins,
-  ].map((o) => o.trim()).filter(Boolean)),
+  ].map((o) => {
+    const origin = o?.trim();
+    return origin && !origin.includes("://") ? `https://${origin}` : origin;
+  }).filter(Boolean)),
 ];
 
 for (const origin of [...allowedOrigins]) {
@@ -76,6 +84,7 @@ app.use("/api/business", businessRoutes);
 app.use("/api/products", createCrudRoutes(Product));
 app.use("/api/customers", createCrudRoutes(Customer));
 app.use("/api/suppliers", createCrudRoutes(Supplier));
+app.use("/api/invoices", invoiceRoutes);
 app.use("/api/invoices", createCrudRoutes(Invoice));
 app.use("/api/purchases", createCrudRoutes(Purchase));
 app.use("/api/payments", createCrudRoutes(Payment));
@@ -131,4 +140,8 @@ async function start() {
   }
 }
 
-start();
+if (require.main === module) {
+  start();
+}
+
+module.exports = { app, start, connectDB };

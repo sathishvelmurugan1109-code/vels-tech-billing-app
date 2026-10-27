@@ -165,6 +165,8 @@ export interface Payment {
   verificationStatus?: "pending" | "verified";
   verificationMethod?: "manual" | "gateway";
   verifiedAt?: string;
+  manualConfirmationBy?: string;
+  manualConfirmedAt?: string;
 }
 
 export type StockMovementType =

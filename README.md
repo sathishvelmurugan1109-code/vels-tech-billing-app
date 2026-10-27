@@ -62,3 +62,21 @@ npm run build
 When hosted on HTTPS, users can click 'Add to Home Screen' and use it like an app.
 
 The backend health endpoint is available at `http://localhost:5000/api/health`.
+
+### Vercel production API
+
+The Express backend is exposed as a Vercel serverless API under `/api/*`.
+Production builds use the same origin when `VITE_API_URL` is not set. In the
+Vercel project's **Production** Environment Variables, configure:
+
+- `VITE_API_URL` — the public production origin, e.g.
+  `https://vels-tech-billing-app.vercel.app`
+- `MONGODB_URI` — the existing MongoDB Atlas connection string (sensitive)
+- `JWT_SECRET` — a randomly generated secret of at least 32 bytes (sensitive)
+- `CORS_ORIGIN` — the production frontend origin; Vercel deployment and project
+  production URLs are also allowed automatically
+
+Store `MONGODB_URI` and `JWT_SECRET` as sensitive Vercel variables; never use a
+`VITE_` prefix for secrets. Redeploy after adding or changing environment
+variables. Verify `/api/health` returns successfully and test valid and invalid
+registered accounts against `/api/auth/login`.

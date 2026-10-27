@@ -19,10 +19,20 @@ const paymentSchema = new mongoose.Schema(
     verificationStatus: { type: String, enum: ["pending", "verified"], default: "pending" },
     verificationMethod: { type: String, enum: ["manual", "gateway"] },
     verifiedAt: { type: Date },
+    idempotencyKey: { type: String, default: undefined },
+    manualConfirmationBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    manualConfirmedAt: { type: Date },
   },
   { timestamps: true }
 );
 
 paymentSchema.index({ businessId: 1, createdAt: -1 });
+paymentSchema.index(
+  { businessId: 1, idempotencyKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { idempotencyKey: { $type: "string" } },
+  },
+);
 
 module.exports = mongoose.model("Payment", paymentSchema);

@@ -142,8 +142,13 @@ export function PaymentsPage({ payments, onReceivePayment }: PaymentsPageProps) 
                   </td>
                   <td className="px-4 py-3.5">
                     <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-zinc-100 border text-zinc-800">
-                      {p.paymentMode}
+                      {p.paymentMode}{p.verificationMethod === "manual" ? " / Manual Confirmation" : ""}
                     </span>
+                    {p.verificationMethod === "manual" && (
+                      <div className="mt-1 text-[10px] text-zinc-500">
+                        Staff {p.manualConfirmationBy || "—"} · {p.manualConfirmedAt || p.date}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3.5 text-zinc-500 text-[12px]">
                     {p.reference && <div className="mono font-medium text-zinc-700">{p.reference}</div>}
@@ -168,8 +173,15 @@ export function PaymentsPage({ payments, onReceivePayment }: PaymentsPageProps) 
                   <div className="font-extrabold mono text-[13px] text-zinc-900">{p.receiptNo}</div>
                   <div className="font-bold text-[14px] text-zinc-800">{p.partyName}</div>
                   <div className="text-[11px] text-zinc-500">
-                    {p.date} • {p.paymentMode} {p.invoiceNo ? `• ${p.invoiceNo}` : ""}
+                    {p.date} • {p.paymentMode}
+                    {p.verificationMethod === "manual" ? " / Manual Confirmation" : ""}
+                    {p.invoiceNo ? ` • ${p.invoiceNo}` : ""}
                   </div>
+                  {p.verificationMethod === "manual" && (
+                    <div className="text-[10px] text-zinc-500">
+                      Confirmed by staff {p.manualConfirmationBy || "—"} · {p.manualConfirmedAt || p.date}
+                    </div>
+                  )}
                 </div>
                 <div className="text-right font-extrabold mono text-[16px] text-emerald-700">
                   {formatCurrency(p.amount)}
