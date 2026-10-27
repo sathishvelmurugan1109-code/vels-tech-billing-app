@@ -55,7 +55,10 @@ export function CustomersPage({
 
       const totalBilled = cInvoices.reduce((s, inv) => addMoney(s, inv.grandTotal), 0);
       const invoicePaid = cInvoices.reduce((s, inv) => addMoney(s, inv.paidAmount), 0);
-      const directPaid = sumMoney(cPayments.map((p) => p.amount));
+      const standalonePayments = cPayments.filter(
+        (p) => !p.invoiceId || !cInvoices.some((inv) => inv.id === p.invoiceId),
+      );
+      const directPaid = sumMoney(standalonePayments.map((p) => p.amount));
       const totalPaid = addMoney(invoicePaid, directPaid);
 
       // Ledger outstanding
@@ -261,23 +264,28 @@ export function CustomersPage({
                   </div>
                 </div>
 
+                {/* Primary Actions */}
                 <div className="flex items-center gap-2 pt-1">
                   <button
+                    type="button"
                     onClick={() => onViewLedger(c)}
-                    className="flex-1 min-h-[44px] rounded-xl bg-zinc-900 text-white font-semibold text-[12px] flex items-center justify-center gap-1.5"
+                    className="flex-1 min-h-[44px] rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-semibold text-[12px] flex items-center justify-center gap-1.5 transition"
                   >
                     <FileText className="h-4 w-4" /> View Ledger
                   </button>
                   <button
+                    type="button"
                     onClick={() => onReceivePaymentForCustomer(c)}
-                    className="h-11 px-3.5 rounded-xl bg-emerald-600 text-white font-semibold text-[12px] flex items-center gap-1"
+                    className="h-11 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[12px] flex items-center gap-1 transition"
                   >
                     <CreditCard className="h-4 w-4" /> Pay
                   </button>
                   {phoneInfo.waNumber && (
                     <button
+                      type="button"
+                      title="WhatsApp Customer"
                       onClick={() => window.open(`https://wa.me/${phoneInfo.waNumber}`, "_blank")}
-                      className="h-11 w-11 rounded-xl bg-[#25D366] text-white grid place-items-center shrink-0"
+                      className="h-11 w-11 rounded-xl bg-[#25D366] hover:bg-[#20ba5a] text-white grid place-items-center shrink-0 transition"
                     >
                       <Smartphone className="h-4 w-4" />
                     </button>
@@ -285,11 +293,37 @@ export function CustomersPage({
                   {c.phone && (
                     <a
                       href={`tel:${c.phone}`}
-                      className="h-11 w-11 rounded-xl bg-zinc-100 text-zinc-700 grid place-items-center shrink-0"
+                      title="Call Customer"
+                      className="h-11 w-11 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 grid place-items-center shrink-0 transition"
                     >
                       <Phone className="h-4 w-4" />
                     </a>
                   )}
+                </div>
+
+                {/* Secondary Actions: New Bill, Edit, Delete */}
+                <div className="flex items-center gap-2 pt-1 border-t border-zinc-100">
+                  <button
+                    type="button"
+                    onClick={() => onNewInvoiceForCustomer(c)}
+                    className="flex-1 min-h-[38px] rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-[11px] flex items-center justify-center gap-1 transition"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> New Bill
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onEditCustomer(c)}
+                    className="flex-1 min-h-[38px] rounded-xl border border-zinc-200 hover:bg-zinc-100 text-zinc-700 font-semibold text-[11px] flex items-center justify-center gap-1 transition"
+                  >
+                    <Edit3 className="h-3.5 w-3.5 text-zinc-500" /> Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDeleteCustomer(c)}
+                    className="min-h-[38px] px-3 rounded-xl border border-rose-200 bg-rose-50/50 hover:bg-rose-100 text-rose-700 font-semibold text-[11px] flex items-center justify-center gap-1 transition"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Delete
+                  </button>
                 </div>
               </div>
             );

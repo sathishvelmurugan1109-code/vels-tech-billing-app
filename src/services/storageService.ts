@@ -13,6 +13,7 @@ import type {
   SalesReturn,
   Expense,
   CompanySettings,
+  StaffMember,
 } from "../types";
 
 export const STORAGE_KEYS = {
@@ -26,6 +27,8 @@ export const STORAGE_KEYS = {
   STOCK_MOVEMENTS: "vels_stock_movements",
   SALES_RETURNS: "vels_sales_returns",
   EXPENSES: "vels_expenses",
+  STAFF: "vels_staff",
+  ACTIVE_STAFF_ID: "vels_active_staff_id",
   LAST_BACKUP: "vels_last_backup_date",
 } as const;
 
@@ -43,6 +46,7 @@ export type FullBackupPayload = {
   salesReturns: SalesReturn[];
   expenses: Expense[];
   settings: CompanySettings;
+  staff?: StaffMember[];
 };
 
 // In-memory fallback for non-browser or test execution
@@ -131,6 +135,7 @@ export function createFullBackup(data: {
   salesReturns: SalesReturn[];
   expenses: Expense[];
   settings: CompanySettings;
+  staff?: StaffMember[];
 }): FullBackupPayload {
   const now = new Date().toISOString();
   getStorageBackend().setItem(STORAGE_KEYS.LAST_BACKUP, now);
@@ -149,6 +154,7 @@ export function createFullBackup(data: {
     salesReturns: data.salesReturns || [],
     expenses: data.expenses || [],
     settings: data.settings,
+    staff: data.staff || [],
   };
 }
 
@@ -240,10 +246,11 @@ export function validateAndRestoreBackup(
       salesReturns: Array.isArray(payload.salesReturns) ? (payload.salesReturns as SalesReturn[]) : [],
       expenses: Array.isArray(payload.expenses) ? (payload.expenses as Expense[]) : [],
       settings: (payload.settings as CompanySettings) || ({} as CompanySettings),
+      staff: Array.isArray(payload.staff) ? (payload.staff as StaffMember[]) : undefined,
     };
 
     // Attempt transactional persistence
-    const success = transactionalStorageUpdate([
+    const entriesToPersist: Array<{ key: string; value: unknown }> = [
       { key: STORAGE_KEYS.PRODUCTS, value: fullPayload.products },
       { key: STORAGE_KEYS.CUSTOMERS, value: fullPayload.customers },
       { key: STORAGE_KEYS.INVOICES, value: fullPayload.invoices },
@@ -254,7 +261,11 @@ export function validateAndRestoreBackup(
       { key: STORAGE_KEYS.STOCK_MOVEMENTS, value: fullPayload.stockMovements },
       { key: STORAGE_KEYS.SALES_RETURNS, value: fullPayload.salesReturns },
       { key: STORAGE_KEYS.EXPENSES, value: fullPayload.expenses },
-    ]);
+    ];
+    if (fullPayload.staff) {
+      entriesToPersist.push({ key: STORAGE_KEYS.STAFF, value: fullPayload.staff });
+    }
+    const success = transactionalStorageUpdate(entriesToPersist);
 
     if (!success) {
       return { ok: false, error: "Failed to persist restored data to storage." };

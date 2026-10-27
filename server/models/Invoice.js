@@ -49,6 +49,9 @@ const invoiceSchema = new mongoose.Schema(
     paidAmount: { type: Number, default: 0 },
     notes: { type: String, default: "" },
     terms: { type: String, default: "" },
+    staffId: { type: String, default: "" },
+    staffName: { type: String, default: "" },
+    staffRole: { type: String, default: "" },
     isDeleted: { type: Boolean, default: false },
   },
   { timestamps: true }

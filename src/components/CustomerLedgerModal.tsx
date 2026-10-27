@@ -88,15 +88,20 @@ export function CustomerLedgerModal({
         rawInvoice: inv,
       });
 
-      // If paid on invoice creation
-      if (inv.paidAmount > 0) {
+      // If paid on invoice creation and not already represented in customerPayments
+      const matchingPaymentsTotal = customerPayments
+        .filter((p) => p.invoiceId === inv.id)
+        .reduce((sum, p) => addMoney(sum, p.amount), 0);
+
+      const unrecordedPaid = subtractMoney(inv.paidAmount, matchingPaymentsTotal);
+      if (unrecordedPaid > 0) {
         entries.push({
           id: `${inv.id}-paid`,
           date: inv.date,
           type: "Payment",
           reference: `Receipt (${inv.paymentMode}) - ${inv.invoiceNo}`,
           debit: 0,
-          credit: inv.paidAmount,
+          credit: unrecordedPaid,
         });
       }
     });

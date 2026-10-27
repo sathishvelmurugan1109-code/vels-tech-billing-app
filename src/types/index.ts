@@ -3,6 +3,34 @@ import type { PaymentMode, PaymentStatus } from "../services/paymentService";
 
 export type { InvoiceStatus, DiscountType, PaymentMode, PaymentStatus };
 
+export type StaffRole = "owner" | "admin" | "manager" | "cashier" | "sales";
+
+export type StaffPermission =
+  | "invoices:create"
+  | "invoices:edit"
+  | "invoices:cancel"
+  | "refunds:manage"
+  | "payments:collect"
+  | "products:manage"
+  | "inventory:adjust"
+  | "reports:view"
+  | "staff:manage"
+  | "settings:manage";
+
+export interface StaffMember {
+  id: string;
+  employeeCode: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  role: StaffRole;
+  status: "active" | "inactive";
+  pin?: string;
+  permissions: StaffPermission[];
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export type UnitType =
   | "pcs"
   | "kg"
@@ -109,6 +137,9 @@ export interface Invoice {
   paidAmount: number;
   notes: string;
   terms: string;
+  staffId?: string;
+  staffName?: string;
+  staffRole?: string;
 }
 
 export interface PurchaseItem {
@@ -167,6 +198,8 @@ export interface Payment {
   verifiedAt?: string;
   manualConfirmationBy?: string;
   manualConfirmedAt?: string;
+  staffId?: string;
+  staffName?: string;
 }
 
 export type StockMovementType =
@@ -192,6 +225,8 @@ export interface StockMovement {
   previousStock: number;
   newStock: number;
   notes?: string;
+  staffId?: string;
+  staffName?: string;
 }
 
 export interface SalesReturn {
@@ -224,6 +259,8 @@ export interface SalesReturn {
   creditAmount: number;
   reason: string;
   notes?: string;
+  staffId?: string;
+  staffName?: string;
 }
 
 export type ExpenseCategory =

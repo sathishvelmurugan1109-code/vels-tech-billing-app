@@ -185,16 +185,26 @@ export function SuppliersPage({
 
               <div className="flex items-center gap-2 pt-1">
                 <button
+                  type="button"
                   onClick={() => onNewPurchaseForSupplier(s)}
-                  className="flex-1 min-h-[44px] rounded-xl bg-violet-600 text-white font-semibold text-[12px] flex items-center justify-center gap-1.5"
+                  className="flex-1 min-h-[44px] rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-[12px] flex items-center justify-center gap-1.5 transition"
                 >
                   <Receipt className="h-4 w-4" /> Inward Purchase
                 </button>
                 <button
+                  type="button"
                   onClick={() => onEditSupplier(s)}
-                  className="h-11 px-4 rounded-xl border border-zinc-200 text-zinc-700 font-semibold text-[12px] flex items-center justify-center gap-1"
+                  className="h-11 px-4 rounded-xl border border-zinc-200 hover:bg-zinc-100 text-zinc-700 font-semibold text-[12px] flex items-center justify-center gap-1 transition"
                 >
                   <Edit3 className="h-4 w-4" /> Edit
+                </button>
+                <button
+                  type="button"
+                  title="Delete Supplier"
+                  onClick={() => onDeleteSupplier(s)}
+                  className="h-11 w-11 rounded-xl border border-rose-200 bg-rose-50/50 hover:bg-rose-100 text-rose-700 grid place-items-center shrink-0 transition"
+                >
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             </div>

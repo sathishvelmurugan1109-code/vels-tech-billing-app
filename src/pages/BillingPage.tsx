@@ -90,6 +90,9 @@ export function BillingPage({
   const [date, setDate] = useState<string>(editingInvoice?.date || todayISO());
   const [items, setItems] = useState<InvoiceItem[]>(editingInvoice?.items || []);
   const [paymentMode, setPaymentMode] = useState<PaymentMode>(editingInvoice?.paymentMode || "UPI");
+  const [customPaidAmount, setCustomPaidAmount] = useState<number | "">(
+    editingInvoice ? editingInvoice.paidAmount : "",
+  );
   const [notes, setNotes] = useState<string>(editingInvoice?.notes || "");
   const [terms, setTerms] = useState<string>(editingInvoice?.terms || settings.invoiceTerms);
   const [isSaving, setIsSaving] = useState(false);
@@ -150,12 +153,33 @@ export function BillingPage({
     const customerState = selectedCustomer?.state || settings.state;
     return calculateInvoiceTotals(items, customerState, settings.state);
   }, [items, selectedCustomer, settings.state]);
-  const paymentStatus: PaymentStatus = editingInvoice
-    ? derivePaymentStatus(
-        calculation.grandTotal,
-        Math.min(editingInvoice.paidAmount, calculation.grandTotal),
-      )
-    : "Pending";
+
+  const effectivePaid = useMemo(() => {
+    if (editingInvoice) {
+      if (typeof customPaidAmount === "number") {
+        return Math.min(customPaidAmount, calculation.grandTotal);
+      }
+      return Math.min(editingInvoice.paidAmount, calculation.grandTotal);
+    }
+    if (paymentMode === "UPI") {
+      return 0; // Finalized upon UPI confirmation
+    }
+    if (typeof customPaidAmount === "number") {
+      return Math.min(customPaidAmount, calculation.grandTotal);
+    }
+    if (paymentMode === "Cash" || paymentMode === "Card") {
+      return calculation.grandTotal;
+    }
+    // Credit (Due)
+    return 0;
+  }, [editingInvoice, customPaidAmount, calculation.grandTotal, paymentMode]);
+
+  const paymentStatus: PaymentStatus = useMemo(() => {
+    if (paymentMode === "UPI" && !editingInvoice) {
+      return "Pending";
+    }
+    return derivePaymentStatus(calculation.grandTotal, effectivePaid);
+  }, [calculation.grandTotal, effectivePaid, paymentMode, editingInvoice]);
 
   // Sync logo to WhatsApp and PDF services
   setWaLogo(settings.logo || "");
@@ -312,7 +336,7 @@ export function BillingPage({
         grandTotal: calculation.grandTotal,
         paymentMode,
         paymentStatus,
-        paidAmount: 0,
+        paidAmount: effectivePaid,
         notes: "",
         terms: "",
         status: paymentStatus === "Paid" ? "Paid" : "Pending",
@@ -352,7 +376,7 @@ export function BillingPage({
       grandTotal: calculation.grandTotal,
       paymentMode,
       paymentStatus,
-      paidAmount: 0,
+      paidAmount: effectivePaid,
       notes: "",
       terms: "",
     };
@@ -392,9 +416,7 @@ export function BillingPage({
       return;
     }
 
-    const finalPaid = editingInvoice
-      ? Math.min(editingInvoice.paidAmount, calculation.grandTotal)
-      : 0;
+    const finalPaid = effectivePaid;
 
     if (!Number.isFinite(finalPaid) || finalPaid < 0 || finalPaid > calculation.grandTotal) {
       setError("Amount paid must be between ₹0 and the invoice total.");
@@ -531,6 +553,24 @@ export function BillingPage({
     }
   };
 
+  const handleStartNewBill = () => {
+    setSelectedCustomerId("");
+    setCustomerPhone("");
+    setPhoneTouched(false);
+    setDate(todayISO());
+    setItems([]);
+    setPaymentMode("UPI");
+    setCustomPaidAmount("");
+    setNotes("");
+    setDraftInvoice(null);
+    setConfirmedInvoice(null);
+    setPaymentStep(false);
+    setShowPaymentConfirmation(false);
+    setError("");
+    setCustomerError("");
+    setProductSearch("");
+  };
+
   const downloadFinalInvoice = async () => {
     if (!confirmedInvoice) return;
     try {
@@ -638,16 +678,36 @@ export function BillingPage({
           )}
 
           {confirmedInvoice && (
-            <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <button type="button" onClick={downloadFinalInvoice} className="flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-bold text-white">
-                <Download className="h-4 w-4" /> Download PDF
-              </button>
-              <button type="button" onClick={printFinalInvoice} className="flex h-11 items-center justify-center gap-2 rounded-xl border border-zinc-300 text-sm font-bold text-zinc-800">
-                <Printer className="h-4 w-4" /> Print Bill
-              </button>
-              <button type="button" onClick={shareFinalInvoice} className="flex h-11 items-center justify-center gap-2 rounded-xl border border-zinc-300 text-sm font-bold text-zinc-800">
-                <Share2 className="h-4 w-4" /> Share Invoice
-              </button>
+            <div className="mt-5 space-y-3">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <button type="button" onClick={downloadFinalInvoice} className="flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-bold text-white transition">
+                  <Download className="h-4 w-4" /> Download PDF
+                </button>
+                <button type="button" onClick={printFinalInvoice} className="flex h-11 items-center justify-center gap-2 rounded-xl border border-zinc-300 hover:bg-zinc-100 text-sm font-bold text-zinc-800 transition">
+                  <Printer className="h-4 w-4" /> Print Bill
+                </button>
+                <button type="button" onClick={shareFinalInvoice} className="flex h-11 items-center justify-center gap-2 rounded-xl border border-zinc-300 hover:bg-zinc-100 text-sm font-bold text-zinc-800 transition">
+                  <Share2 className="h-4 w-4" /> Share Invoice
+                </button>
+              </div>
+              <div className="pt-2 border-t border-zinc-200 flex flex-col sm:flex-row gap-2">
+                <button
+                  type="button"
+                  onClick={handleStartNewBill}
+                  className="flex-1 h-12 flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition"
+                >
+                  <Plus className="h-4 w-4" /> Start Next Bill
+                </button>
+                {onCancelEdit && (
+                  <button
+                    type="button"
+                    onClick={onCancelEdit}
+                    className="flex-1 h-12 flex items-center justify-center gap-2 rounded-xl border border-zinc-300 hover:bg-zinc-100 text-zinc-800 font-bold text-sm transition"
+                  >
+                    View Invoices List
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
@@ -1326,6 +1386,54 @@ export function BillingPage({
                 ))}
               </div>
 
+              {paymentMode !== "UPI" && (
+                <div className="pt-2 border-t border-zinc-800 space-y-1.5">
+                  <div className="flex justify-between items-center text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
+                    <span>Amount Received (₹)</span>
+                    <span className="text-[10px] text-zinc-400 lowercase font-normal">
+                      {paymentStatus === "Paid"
+                        ? "Fully paid"
+                        : paymentStatus === "Partially Paid"
+                          ? "Partial payment"
+                          : "Unpaid / Credit"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max={calculation.grandTotal}
+                      step="any"
+                      value={customPaidAmount}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "") {
+                          setCustomPaidAmount("");
+                        } else {
+                          const parsed = parseFloat(val);
+                          setCustomPaidAmount(isNaN(parsed) ? "" : Math.max(0, parsed));
+                        }
+                      }}
+                      placeholder={`Default: ₹${paymentMode === "Credit" ? "0" : calculation.grandTotal}`}
+                      className="flex-1 h-10 px-3 rounded-xl bg-zinc-800 text-white border border-zinc-700 text-[13px] font-semibold focus:outline-none focus:border-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setCustomPaidAmount(calculation.grandTotal)}
+                      className="h-10 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[11px] font-bold transition"
+                    >
+                      Full
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCustomPaidAmount(0)}
+                      className="h-10 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[11px] font-bold transition"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Notes */}

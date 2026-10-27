@@ -42,6 +42,7 @@ import type {
   CompanySettings,
   PaymentMode,
   StockMovementType,
+  StaffMember,
 } from "./types";
 
 // Services & Calculations
@@ -67,6 +68,11 @@ import {
   roundMoney,
   formatCurrency,
 } from "./services";
+import {
+  seedStaff,
+  hasPermission,
+  isPrivilegedAction,
+} from "./services/staffService";
 
 // Components & Modals
 import {
@@ -88,6 +94,9 @@ import { SalesReturnModal } from "./components/SalesReturnModal";
 import { ExpenseModal } from "./components/ExpenseModal";
 import { CustomerLedgerModal } from "./components/CustomerLedgerModal";
 import { NotificationsPopover } from "./components/NotificationsPopover";
+import { HeaderStaffSwitcher } from "./components/HeaderStaffSwitcher";
+import { StaffModal } from "./components/StaffModal";
+import { PinVerificationModal } from "./components/PinVerificationModal";
 
 // Pages
 import { DashboardPage } from "./pages/DashboardPage";
@@ -101,6 +110,7 @@ import { PaymentsPage } from "./pages/PaymentsPage";
 import { ExpensesPage } from "./pages/ExpensesPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { StaffPage } from "./pages/StaffPage";
 import { api } from "./services/apiService";
 
 // Seed fallbacks when localStorage is initially empty
@@ -188,7 +198,8 @@ export type AppView =
   | "payments"
   | "expenses"
   | "reports"
-  | "settings";
+  | "settings"
+  | "staff";
 
 export default function App() {
   // --- App State (offline-first, no auth gate) ---
@@ -232,6 +243,47 @@ export default function App() {
   const [expenses, setExpenses] = useState<Expense[]>(() =>
     safeGetStorage(STORAGE_KEYS.EXPENSES, []),
   );
+
+  // --- Staff & Multi-User State ---
+  const [staffList, setStaffList] = useState<StaffMember[]>(() =>
+    safeGetStorage(STORAGE_KEYS.STAFF, seedStaff),
+  );
+  const [activeStaffId, setActiveStaffId] = useState<string>(() => {
+    const stored = safeGetStorage<string>(STORAGE_KEYS.ACTIVE_STAFF_ID, "");
+    return stored || seedStaff[0].id;
+  });
+
+  const currentStaff = useMemo(() => {
+    return (
+      staffList.find((s) => s.id === activeStaffId && s.status === "active") ||
+      staffList.find((s) => s.status === "active") ||
+      staffList[0] ||
+      null
+    );
+  }, [staffList, activeStaffId]);
+
+  const [showStaffModal, setShowStaffModal] = useState(false);
+  const [editingStaffMember, setEditingStaffMember] = useState<StaffMember | null>(null);
+
+  // Security Verification (PIN Challenge)
+  const [pinModalOpen, setPinModalOpen] = useState(false);
+  const [pinModalTitle, setPinModalTitle] = useState("");
+  const [pinModalDesc, setPinModalDesc] = useState("");
+  const [pinModalCallback, setPinModalCallback] = useState<((staff: StaffMember) => void) | null>(null);
+
+  const requestPinVerification = (
+    actionTitle: string,
+    callback: () => void,
+    actionDesc?: string,
+  ) => {
+    setPinModalTitle(actionTitle);
+    setPinModalDesc(actionDesc || "Enter security PIN to authorize this privileged operation.");
+    setPinModalCallback(() => (_verifiedStaff: StaffMember) => {
+      callback();
+    });
+    setPinModalOpen(true);
+  };
+
   const [settings, setSettings] = useState<CompanySettings>(() => {
     const stored = safeGetStorage<Partial<CompanySettings>>(STORAGE_KEYS.SETTINGS, {});
     const combined = { ...defaultSettings, ...stored };
@@ -398,6 +450,27 @@ export default function App() {
 
   // Persist State to LocalStorage
   useEffect(() => {
+    let alive = true;
+    api.customers
+      .list()
+      .then((backendCustomers: Customer[]) => {
+        if (!alive || !Array.isArray(backendCustomers) || backendCustomers.length === 0) return;
+        setCustomers((prev) => {
+          const map = new Map<string, Customer>();
+          prev.forEach((c) => map.set(c.id, c));
+          backendCustomers.forEach((c) => map.set(c.id, { ...map.get(c.id), ...c }));
+          return Array.from(map.values());
+        });
+      })
+      .catch((e) => {
+        console.warn("Could not fetch database customers:", e?.message);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
     safeSetStorage(STORAGE_KEYS.PRODUCTS, products);
   }, [products]);
   useEffect(() => {
@@ -427,6 +500,12 @@ export default function App() {
   useEffect(() => {
     safeSetStorage(STORAGE_KEYS.SETTINGS, settings);
   }, [settings]);
+  useEffect(() => {
+    safeSetStorage(STORAGE_KEYS.STAFF, staffList);
+  }, [staffList]);
+  useEffect(() => {
+    safeSetStorage(STORAGE_KEYS.ACTIVE_STAFF_ID, activeStaffId);
+  }, [activeStaffId]);
 
   // Global Keyboard Shortcuts (⌘K for Search, ⌘N for Bill)
   useEffect(() => {
@@ -447,7 +526,19 @@ export default function App() {
 
   // --- Handlers: Invoice Operations ---
   const handleCreateInvoiceDraft = async (invoice: Invoice): Promise<Invoice> => {
-    const saved = await api.invoices.createDraft(invoice);
+    let saved: Invoice;
+    try {
+      saved = await api.invoices.createDraft(invoice);
+    } catch (err) {
+      console.warn("Could not sync invoice draft to backend API, keeping local:", err);
+      saved = {
+        ...invoice,
+        id: invoice.id || `inv_draft_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        status: "Draft",
+        paymentStatus: "Pending",
+        paidAmount: 0,
+      };
+    }
     setInvoices((prev) => {
       const existingIndex = prev.findIndex(
         (candidate) => candidate.id === saved.id || candidate.invoiceNo === saved.invoiceNo,
@@ -461,25 +552,60 @@ export default function App() {
   const handleConfirmManualPayment = async (
     draft: Invoice,
   ): Promise<{ invoice: Invoice; payment: Payment }> => {
-    const { invoice, payment } = await api.invoices.confirmManualPayment(draft.id);
-    const savedInvoice = invoice as Invoice;
-    const savedPayment: Payment = {
-      id: payment.id,
-      receiptNo: payment.invoiceNo,
-      date: payment.date,
-      partyType: "customer",
-      partyId: payment.customerId,
-      partyName: payment.customerName,
-      invoiceId: payment.invoiceId,
-      invoiceNo: payment.invoiceNo,
-      amount: payment.amount,
-      paymentMode: "UPI",
-      notes: payment.notes,
-      verificationStatus: payment.verificationStatus,
-      verificationMethod: payment.verificationMethod,
-      manualConfirmationBy: payment.manualConfirmationBy,
-      manualConfirmedAt: payment.manualConfirmedAt,
-    };
+    let savedInvoice: Invoice;
+    let savedPayment: Payment;
+    try {
+      const { invoice, payment } = await api.invoices.confirmManualPayment(draft.id);
+      savedInvoice = invoice as Invoice;
+      savedPayment = {
+        id: payment.id,
+        receiptNo: payment.invoiceNo || `REC-${String(Date.now()).slice(-6)}`,
+        date: payment.date || todayISO(),
+        partyType: "customer",
+        partyId: payment.customerId || draft.customerId,
+        partyName: payment.customerName || draft.customerName,
+        partyPhone: draft.customerPhone,
+        invoiceId: payment.invoiceId || draft.id,
+        invoiceNo: payment.invoiceNo || draft.invoiceNo,
+        amount: payment.amount || draft.grandTotal,
+        paymentMode: "UPI",
+        notes: payment.notes,
+        verificationStatus: payment.verificationStatus || "verified",
+        verificationMethod: payment.verificationMethod || "manual",
+        manualConfirmationBy: payment.manualConfirmationBy || currentStaff?.id,
+        manualConfirmedAt: payment.manualConfirmedAt || new Date().toISOString(),
+        staffId: currentStaff?.id,
+        staffName: currentStaff?.name,
+      };
+    } catch (err) {
+      console.warn("Could not confirm payment on backend API, confirming locally:", err);
+      savedInvoice = {
+        ...draft,
+        status: "Paid",
+        paymentStatus: "Paid",
+        paidAmount: draft.grandTotal,
+      };
+      savedPayment = {
+        id: `pay_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        receiptNo: `REC-${String(Date.now()).slice(-6)}`,
+        date: todayISO(),
+        partyType: "customer",
+        partyId: draft.customerId,
+        partyName: draft.customerName,
+        partyPhone: draft.customerPhone,
+        invoiceId: draft.id,
+        invoiceNo: draft.invoiceNo,
+        amount: draft.grandTotal,
+        paymentMode: "UPI",
+        notes: "Manually confirmed UPI receipt",
+        verificationStatus: "verified",
+        verificationMethod: "manual",
+        manualConfirmationBy: currentStaff?.id,
+        manualConfirmedAt: new Date().toISOString(),
+        staffId: currentStaff?.id,
+        staffName: currentStaff?.name,
+      };
+    }
 
     setInvoices((prev) =>
       prev.map((candidate) => (candidate.id === savedInvoice.id ? savedInvoice : candidate)),
@@ -512,18 +638,49 @@ export default function App() {
   };
 
   const handleSaveInvoice = (invoice: Invoice) => {
+    const invoiceWithStaff: Invoice = {
+      ...invoice,
+      staffId: invoice.staffId || currentStaff?.id,
+      staffName: invoice.staffName || currentStaff?.name,
+      staffRole: invoice.staffRole || currentStaff?.role,
+    };
+
     const oldInvoice = editingInvoiceRecord
       ? invoices.find((i) => i.id === editingInvoiceRecord.id) ?? null
       : null;
 
     if (editingInvoiceRecord) {
-      setInvoices((prev) => prev.map((x) => (x.id === editingInvoiceRecord.id ? invoice : x)));
+      setInvoices((prev) => prev.map((x) => (x.id === editingInvoiceRecord.id ? invoiceWithStaff : x)));
     } else {
-      setInvoices((prev) => [...prev, invoice]);
+      setInvoices((prev) => [...prev, invoiceWithStaff]);
+
+      // If invoice was paid (Cash, Card, or partial payment), record verifiable Payment receipt
+      if (invoiceWithStaff.paidAmount > 0) {
+        const paymentRecord: Payment = {
+          id: `pay_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          receiptNo: `REC-${String(Date.now()).slice(-6)}`,
+          date: invoiceWithStaff.date,
+          partyType: "customer",
+          partyId: invoiceWithStaff.customerId,
+          partyName: invoiceWithStaff.customerName,
+          partyPhone: invoiceWithStaff.customerPhone,
+          invoiceId: invoiceWithStaff.id,
+          invoiceNo: invoiceWithStaff.invoiceNo,
+          amount: invoiceWithStaff.paidAmount,
+          paymentMode: invoiceWithStaff.paymentMode,
+          notes: `Settled on billing for ${invoiceWithStaff.invoiceNo}`,
+          verificationStatus: "verified",
+          verificationMethod: "manual",
+          verifiedAt: new Date().toISOString(),
+          staffId: currentStaff?.id,
+          staffName: currentStaff?.name,
+        };
+        setPayments((prev) => [paymentRecord, ...prev]);
+      }
     }
 
     // Stock difference reconciliation
-    const mutation = planInvoiceMutation(oldInvoice, invoice, { businessState: settings.state });
+    const mutation = planInvoiceMutation(oldInvoice, invoiceWithStaff, { businessState: settings.state });
     setProducts((prev) => applyStockChanges(prev, mutation.stockChanges));
 
     // Record Stock Movement Ledger entries
@@ -531,14 +688,16 @@ export default function App() {
       const prod = products.find((p) => p.id === change.productId);
       const sm: StockMovement = {
         id: `sm_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        date: invoice.date,
+        date: invoiceWithStaff.date,
         productId: change.productId,
         productName: prod?.name || "Product",
         type: change.delta < 0 ? "Sale" : "Sales Return",
         quantity: change.delta,
-        reference: `Invoice ${invoice.invoiceNo}`,
+        reference: `Invoice ${invoiceWithStaff.invoiceNo}`,
         previousStock: prod?.stock || 0,
         newStock: Math.max(0, (prod?.stock || 0) + change.delta),
+        staffId: currentStaff?.id,
+        staffName: currentStaff?.name,
       };
       setStockMovements((prev) => [sm, ...prev]);
     });
@@ -546,11 +705,56 @@ export default function App() {
     // Reset billing and open invoice preview
     setEditingInvoiceRecord(null);
     setView("invoices");
-    setViewingInvoice(invoice);
+    setViewingInvoice(invoiceWithStaff);
   };
 
   const handleCancelInvoice = (inv: Invoice) => {
     if (inv.status === "Cancelled") return;
+
+    const proceedCancel = () => {
+      const mutation = planInvoiceMutation(inv, null, { businessState: settings.state });
+      setInvoices((prev) =>
+        prev.map((x) =>
+          x.id === inv.id
+            ? {
+                ...x,
+                status: "Cancelled",
+                notes: `${x.notes || ""}\nCANCELLED by ${currentStaff?.name || "Staff"} on ${new Date().toLocaleDateString()}`.trim(),
+              }
+            : x,
+        ),
+      );
+      setProducts((prev) => applyStockChanges(prev, mutation.stockChanges));
+
+      // Record stock restoration movements
+      mutation.stockChanges.forEach((change) => {
+        const prod = products.find((p) => p.id === change.productId);
+        const sm: StockMovement = {
+          id: `sm_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          date: todayISO(),
+          productId: change.productId,
+          productName: prod?.name || "Product",
+          type: "Adjustment",
+          quantity: change.delta,
+          reference: `Cancelled ${inv.invoiceNo}`,
+          previousStock: prod?.stock || 0,
+          newStock: Math.max(0, (prod?.stock || 0) + change.delta),
+          staffId: currentStaff?.id,
+          staffName: currentStaff?.name,
+        };
+        setStockMovements((prev) => [sm, ...prev]);
+      });
+    };
+
+    if (!hasPermission(currentStaff, "invoices:cancel")) {
+      requestPinVerification(
+        `Authorize Cancellation of ${inv.invoiceNo}`,
+        proceedCancel,
+        `Current role (${currentStaff?.role}) requires Manager or Owner PIN authorization to cancel invoices.`
+      );
+      return;
+    }
+
     if (
       !window.confirm(
         `Are you sure you want to cancel ${inv.invoiceNo}? This will restore inventory stock and reverse the invoice.`,
@@ -558,36 +762,7 @@ export default function App() {
     )
       return;
 
-    const mutation = planInvoiceMutation(inv, null, { businessState: settings.state });
-    setInvoices((prev) =>
-      prev.map((x) =>
-        x.id === inv.id
-          ? {
-              ...x,
-              status: "Cancelled",
-              notes: `${x.notes || ""}\nCANCELLED on ${new Date().toLocaleDateString()}`.trim(),
-            }
-          : x,
-      ),
-    );
-    setProducts((prev) => applyStockChanges(prev, mutation.stockChanges));
-
-    // Record stock restoration movements
-    mutation.stockChanges.forEach((change) => {
-      const prod = products.find((p) => p.id === change.productId);
-      const sm: StockMovement = {
-        id: `sm_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        date: todayISO(),
-        productId: change.productId,
-        productName: prod?.name || "Product",
-        type: "Adjustment",
-        quantity: change.delta,
-        reference: `Cancelled ${inv.invoiceNo}`,
-        previousStock: prod?.stock || 0,
-        newStock: Math.max(0, (prod?.stock || 0) + change.delta),
-      };
-      setStockMovements((prev) => [sm, ...prev]);
-    });
+    proceedCancel();
   };
 
   const handleDuplicateInvoice = (inv: Invoice) => {
@@ -763,21 +938,49 @@ export default function App() {
   };
 
   // --- Handlers: Customers ---
-  const handleSaveCustomer = (customerData: Omit<Customer, "id"> & { id?: string }) => {
-    let savedCustomerId = customerData.id;
+  const handleSaveCustomer = async (customerData: Omit<Customer, "id"> & { id?: string }) => {
+    let savedCustomer: Customer;
     if (customerData.id) {
+      try {
+        savedCustomer = await api.customers.update(customerData.id, customerData);
+      } catch (err) {
+        savedCustomer = { id: customerData.id, ...customerData } as Customer;
+      }
       setCustomers((prev) =>
-        prev.map((c) => (c.id === customerData.id ? ({ ...c, ...customerData } as Customer) : c)),
+        prev.map((c) => (c.id === customerData.id ? ({ ...c, ...savedCustomer }) : c)),
       );
     } else {
-      const cust: Customer = {
-        id: `cust_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        ...customerData,
-      } as Customer;
-      savedCustomerId = cust.id;
-      setCustomers((prev) => [...prev, cust]);
+      let res: any;
+      try {
+        res = await api.customers.create(customerData);
+      } catch (err) {
+        console.warn("Could not save customer to backend API, saving locally:", err);
+        res = {
+          ...customerData,
+          id: `c_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        };
+      }
+      savedCustomer = {
+        id: res.id || res._id,
+        name: res.name || customerData.name,
+        phone: res.phone !== undefined ? res.phone : (customerData.phone || ""),
+        email: res.email || customerData.email,
+        gstin: res.gstin !== undefined ? res.gstin : (customerData.gstin || ""),
+        address: res.address !== undefined ? res.address : (customerData.address || ""),
+        state: res.state || customerData.state,
+        openingBalance:
+          res.openingBalance !== undefined ? res.openingBalance : (customerData.openingBalance || 0),
+        notes: res.notes || customerData.notes,
+      };
+      setCustomers((prev) => {
+        const existingIdx = prev.findIndex((c) => c.id === savedCustomer.id);
+        if (existingIdx >= 0) {
+          return prev.map((c, i) => (i === existingIdx ? savedCustomer : c));
+        }
+        return [...prev, savedCustomer];
+      });
     }
-    if (savedCustomerId) customerCreatedCallback?.(savedCustomerId);
+    if (savedCustomer?.id) customerCreatedCallback?.(savedCustomer.id);
     setCustomerCreatedCallback(null);
     setShowCustomerModal(false);
     setEditingCustomer(null);
@@ -959,6 +1162,7 @@ export default function App() {
             { k: "payments", label: "Payments", icon: CreditCard },
             { k: "expenses", label: "Expenses", icon: DollarSign },
             { k: "reports", label: "Reports & GST", icon: TrendingUp },
+            { k: "staff", label: "Staff & Users", icon: Users },
             { k: "settings", label: "Settings", icon: SettingsIcon },
           ].map((item) => (
             <button
@@ -1043,6 +1247,7 @@ export default function App() {
                 { k: "payments", label: "Payments", icon: CreditCard },
                 { k: "expenses", label: "Expenses", icon: DollarSign },
                 { k: "reports", label: "Reports & GST", icon: TrendingUp },
+                { k: "staff", label: "Staff & Users", icon: Users },
                 { k: "settings", label: "Settings", icon: SettingsIcon },
               ].map((item) => (
                 <button
@@ -1095,6 +1300,12 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
+            <HeaderStaffSwitcher
+              currentStaff={currentStaff}
+              staffList={staffList}
+              onSelectStaff={(s) => setActiveStaffId(s.id)}
+              onOpenStaffManagement={() => setView("staff")}
+            />
             <button
               type="button"
               aria-label="Open navigation menu"
@@ -1147,6 +1358,12 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-2.5">
+              <HeaderStaffSwitcher
+                currentStaff={currentStaff}
+                staffList={staffList}
+                onSelectStaff={(s) => setActiveStaffId(s.id)}
+                onOpenStaffManagement={() => setView("staff")}
+              />
               <div className="relative">
                 <button
                   onClick={() => setShowNotificationsPopover((v) => !v)}
@@ -1410,6 +1627,32 @@ export default function App() {
               salesReturns={salesReturns}
               expenses={expenses}
               settings={settings}
+              staffList={staffList}
+            />
+          )}
+
+          {view === "staff" && (
+            <StaffPage
+              staffList={staffList}
+              currentStaff={currentStaff}
+              onAddStaff={() => {
+                setEditingStaffMember(null);
+                setShowStaffModal(true);
+              }}
+              onEditStaff={(s) => {
+                setEditingStaffMember(s);
+                setShowStaffModal(true);
+              }}
+              onToggleStatus={(s) => {
+                setStaffList((prev) =>
+                  prev.map((item) =>
+                    item.id === s.id
+                      ? { ...item, status: item.status === "active" ? "inactive" : "active" }
+                      : item
+                  )
+                );
+              }}
+              onRequestPinVerification={requestPinVerification}
             />
           )}
 
@@ -1779,6 +2022,50 @@ export default function App() {
           onClose={() => {
             setShowCustomerLedgerModal(false);
             setLedgerCustomer(null);
+          }}
+        />
+      )}
+
+      {/* 14. Staff Create / Edit Modal */}
+      {showStaffModal && (
+        <StaffModal
+          isOpen={showStaffModal}
+          staff={editingStaffMember}
+          existingStaff={staffList}
+          onSave={(savedStaff) => {
+            setStaffList((prev) => {
+              const exists = prev.some((s) => s.id === savedStaff.id);
+              if (exists) {
+                return prev.map((s) => (s.id === savedStaff.id ? savedStaff : s));
+              }
+              return [...prev, savedStaff];
+            });
+          }}
+          onClose={() => {
+            setShowStaffModal(false);
+            setEditingStaffMember(null);
+          }}
+        />
+      )}
+
+      {/* 15. Security Verification / PIN Modal */}
+      {pinModalOpen && (
+        <PinVerificationModal
+          isOpen={pinModalOpen}
+          staff={currentStaff}
+          allStaff={staffList}
+          actionTitle={pinModalTitle}
+          actionDescription={pinModalDesc}
+          onSuccess={(verifiedStaff) => {
+            setPinModalOpen(false);
+            if (pinModalCallback) {
+              pinModalCallback(verifiedStaff);
+              setPinModalCallback(null);
+            }
+          }}
+          onClose={() => {
+            setPinModalOpen(false);
+            setPinModalCallback(null);
           }}
         />
       )}

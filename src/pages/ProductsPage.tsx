@@ -131,7 +131,7 @@ export function ProductsPage({
 
       {/* Search & Actions Bar */}
       <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
-        <div className="flex-1 flex gap-2">
+        <div className="flex-1 flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
             <input
@@ -303,16 +303,26 @@ export function ProductsPage({
 
                 <div className="pt-2 flex items-center gap-2">
                   <button
+                    type="button"
                     onClick={() => onStockAdjustment(p)}
-                    className="flex-1 min-h-[44px] rounded-xl bg-zinc-100 text-zinc-800 font-semibold text-[12px] flex items-center justify-center gap-1.5"
+                    className="flex-1 min-h-[44px] rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-semibold text-[12px] flex items-center justify-center gap-1.5 transition"
                   >
                     <SlidersHorizontal className="h-4 w-4" /> Stock In / Recount
                   </button>
                   <button
+                    type="button"
                     onClick={() => onEditProduct(p)}
-                    className="h-11 px-4 rounded-xl border border-zinc-200 text-zinc-700 font-semibold text-[12px] flex items-center justify-center gap-1"
+                    className="h-11 px-4 rounded-xl border border-zinc-200 hover:bg-zinc-100 text-zinc-700 font-semibold text-[12px] flex items-center justify-center gap-1 transition"
                   >
                     <Edit3 className="h-4 w-4" /> Edit
+                  </button>
+                  <button
+                    type="button"
+                    title="Delete product"
+                    onClick={() => onDeleteProduct(p)}
+                    className="h-11 w-11 rounded-xl border border-rose-200 bg-rose-50/50 hover:bg-rose-100 text-rose-700 grid place-items-center shrink-0 transition"
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
               </div>

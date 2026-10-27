@@ -229,7 +229,7 @@ export function DashboardPage({
 
         {/* Date Filter Controls */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-xl">
+          <div className="flex flex-wrap items-center gap-1 bg-zinc-100 p-1 rounded-xl max-w-full">
             {(
               [
                 { k: "today", label: "Today" },
@@ -431,7 +431,7 @@ export function DashboardPage({
       {/* Visual Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Sales Trend Line Chart */}
-        <div className="rounded-[24px] bg-white border border-zinc-200 p-5 shadow-sm">
+        <div className="min-w-0 rounded-[24px] bg-white border border-zinc-200 p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div>
               <div className="font-extrabold text-[15px] text-zinc-900">Recent Sales Trend</div>
@@ -474,7 +474,7 @@ export function DashboardPage({
         </div>
 
         {/* Top Selling Products Bar Chart */}
-        <div className="rounded-[24px] bg-white border border-zinc-200 p-5 shadow-sm">
+        <div className="min-w-0 rounded-[24px] bg-white border border-zinc-200 p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div>
               <div className="font-extrabold text-[15px] text-zinc-900">Top Selling Products</div>
@@ -529,7 +529,7 @@ export function DashboardPage({
       {/* Payment Methods & Top Customers Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Payment Methods Pie */}
-        <div className="rounded-[24px] bg-white border border-zinc-200 p-5 shadow-sm">
+        <div className="min-w-0 rounded-[24px] bg-white border border-zinc-200 p-5 shadow-sm">
           <div className="font-extrabold text-[15px] text-zinc-900 mb-1">Payment Modes</div>
           <div className="text-[11px] text-zinc-400 mb-3">Volume split across Cash, UPI & Cards</div>
           <div className="h-56 w-full">

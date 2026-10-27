@@ -11,6 +11,8 @@ const stockMovementSchema = new mongoose.Schema(
     reason: { type: String, default: "" },
     reference: { type: String, default: "" },
     date: { type: String, required: true },
+    staffId: { type: String, default: "" },
+    staffName: { type: String, default: "" },
     notes: { type: String, default: "" },
   },
   { timestamps: true }

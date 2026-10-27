@@ -40,6 +40,7 @@ import type {
   SalesReturn,
   Expense,
   CompanySettings,
+  StaffMember,
 } from "../types";
 
 export interface ReportsPageProps {
@@ -53,6 +54,7 @@ export interface ReportsPageProps {
   salesReturns: SalesReturn[];
   expenses: Expense[];
   settings: CompanySettings;
+  staffList?: StaffMember[];
 }
 
 export type ReportType =
@@ -67,7 +69,8 @@ export type ReportType =
   | "purchases"
   | "expenses"
   | "returns"
-  | "invoices";
+  | "invoices"
+  | "staff";
 
 export function ReportsPage({
   invoices,
@@ -80,6 +83,7 @@ export function ReportsPage({
   salesReturns,
   expenses,
   settings,
+  staffList = [],
 }: ReportsPageProps) {
   const [selectedReport, setSelectedReport] = useState<ReportType>("sales");
   const [rangePreset, setRangePreset] = useState<RangePreset>("month");
@@ -156,6 +160,116 @@ export function ReportsPage({
     return salesReturns.filter((r) => r.date >= activeRange.from && r.date <= activeRange.to);
   }, [salesReturns, activeRange]);
 
+  // Payments in range
+  const rangePayments = useMemo(() => {
+    return payments.filter((p) => p.date >= activeRange.from && p.date <= activeRange.to);
+  }, [payments, activeRange]);
+
+  // Staff Performance Data
+  const staffPerformanceData = useMemo(() => {
+    // Map of staff performance
+    const map = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        role: string;
+        code: string;
+        invoicesCount: number;
+        billedAmount: number;
+        paymentsCount: number;
+        collectionsAmount: number;
+        returnsCount: number;
+        refundsAmount: number;
+      }
+    >();
+
+    // Initialize from staffList
+    staffList.forEach((s) => {
+      map.set(s.id, {
+        id: s.id,
+        name: s.name,
+        role: s.role,
+        code: s.employeeCode,
+        invoicesCount: 0,
+        billedAmount: 0,
+        paymentsCount: 0,
+        collectionsAmount: 0,
+        returnsCount: 0,
+        refundsAmount: 0,
+      });
+    });
+
+    // Aggregate rangeInvoices
+    rangeInvoices.forEach((inv) => {
+      if (inv.status === "Cancelled") return;
+      const key = inv.staffId || "unassigned";
+      if (!map.has(key)) {
+        map.set(key, {
+          id: key,
+          name: inv.staffName || (key === "unassigned" ? "General Terminal" : key),
+          role: inv.staffRole || "cashier",
+          code: "-",
+          invoicesCount: 0,
+          billedAmount: 0,
+          paymentsCount: 0,
+          collectionsAmount: 0,
+          returnsCount: 0,
+          refundsAmount: 0,
+        });
+      }
+      const item = map.get(key)!;
+      item.invoicesCount += 1;
+      item.billedAmount = addMoney(item.billedAmount, inv.grandTotal);
+    });
+
+    // Aggregate rangePayments
+    rangePayments.forEach((pmt) => {
+      const key = pmt.staffId || "unassigned";
+      if (!map.has(key)) {
+        map.set(key, {
+          id: key,
+          name: pmt.staffName || (key === "unassigned" ? "General Terminal" : key),
+          role: "cashier",
+          code: "-",
+          invoicesCount: 0,
+          billedAmount: 0,
+          paymentsCount: 0,
+          collectionsAmount: 0,
+          returnsCount: 0,
+          refundsAmount: 0,
+        });
+      }
+      const item = map.get(key)!;
+      item.paymentsCount += 1;
+      item.collectionsAmount = addMoney(item.collectionsAmount, pmt.amount);
+    });
+
+    // Aggregate rangeReturns
+    rangeReturns.forEach((ret) => {
+      const key = ret.staffId || "unassigned";
+      if (!map.has(key)) {
+        map.set(key, {
+          id: key,
+          name: ret.staffName || (key === "unassigned" ? "General Terminal" : key),
+          role: "cashier",
+          code: "-",
+          invoicesCount: 0,
+          billedAmount: 0,
+          paymentsCount: 0,
+          collectionsAmount: 0,
+          returnsCount: 0,
+          refundsAmount: 0,
+        });
+      }
+      const item = map.get(key)!;
+      item.returnsCount += 1;
+      item.refundsAmount = addMoney(item.refundsAmount, ret.total);
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.billedAmount - a.billedAmount);
+  }, [staffList, rangeInvoices, rangePayments, rangeReturns]);
+
   // Export current report as CSV
   const handleExportCsv = () => {
     let headers: string[] = [];
@@ -206,6 +320,29 @@ export function ReportsPage({
         c.totalPurchases.toFixed(2),
         c.outstanding.toFixed(2),
       ]);
+    } else if (selectedReport === "staff") {
+      headers = [
+        "Staff Name",
+        "Employee Code",
+        "Role",
+        "Invoices Issued",
+        "Total Billed (INR)",
+        "Payments Collected",
+        "Collections (INR)",
+        "Returns Handled",
+        "Refunds (INR)",
+      ];
+      rows = staffPerformanceData.map((s) => [
+        `"${s.name}"`,
+        s.code,
+        s.role,
+        String(s.invoicesCount),
+        s.billedAmount.toFixed(2),
+        String(s.paymentsCount),
+        s.collectionsAmount.toFixed(2),
+        String(s.returnsCount),
+        s.refundsAmount.toFixed(2),
+      ]);
     } else {
       headers = ["Reference", "Date", "Party / Description", "Amount", "Mode / Notes"];
       rows = rangeInvoices.map((i) => [
@@ -241,6 +378,7 @@ export function ReportsPage({
     { id: "purchases", label: "Inward Purchases", icon: Truck },
     { id: "expenses", label: "Operating Expenses", icon: DollarSign },
     { id: "returns", label: "Sales Returns", icon: RotateCcw },
+    { id: "staff", label: "Staff Performance", icon: Users },
     { id: "invoices", label: "Invoice Register", icon: FileText },
   ];
 
@@ -647,19 +785,30 @@ export function ReportsPage({
           selectedReport === "payments" ||
           selectedReport === "purchases" ||
           selectedReport === "expenses" ||
-          selectedReport === "returns") && (
+          selectedReport === "returns" ||
+          selectedReport === "staff") && (
           <div className="overflow-x-auto">
             <div className="text-[13px] text-zinc-500 pb-2">
               Viewing filtered dataset for {selectedReport.toUpperCase()} ({activeRange.from} to {activeRange.to}).
             </div>
             <table className="w-full text-[12px]">
               <thead className="bg-zinc-50 text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
-                <tr>
-                  <th className="px-4 py-3 text-left">Identifier / Ref</th>
-                  <th className="px-3 py-3 text-left">Date</th>
-                  <th className="px-4 py-3 text-left">Description / Party</th>
-                  <th className="px-4 py-3 text-right">Amount (₹)</th>
-                </tr>
+                {selectedReport === "staff" ? (
+                  <tr>
+                    <th className="px-4 py-3 text-left">Staff Member</th>
+                    <th className="px-3 py-3 text-left">Emp Code</th>
+                    <th className="px-4 py-3 text-center">Invoices</th>
+                    <th className="px-4 py-3 text-right">Billed Value (₹)</th>
+                    <th className="px-4 py-3 text-right">Collections (₹)</th>
+                  </tr>
+                ) : (
+                  <tr>
+                    <th className="px-4 py-3 text-left">Identifier / Ref</th>
+                    <th className="px-3 py-3 text-left">Date</th>
+                    <th className="px-4 py-3 text-left">Description / Party</th>
+                    <th className="px-4 py-3 text-right">Amount (₹)</th>
+                  </tr>
+                )}
               </thead>
               <tbody className="divide-y divide-zinc-100">
                 {selectedReport === "invoices" &&
@@ -700,6 +849,23 @@ export function ReportsPage({
                       <td className="px-4 py-2.5">{r.customerName} ({r.reason})</td>
                       <td className="px-4 py-2.5 text-right mono font-bold text-rose-700">
                         {formatCurrency(r.total)}
+                      </td>
+                    </tr>
+                  ))}
+
+                {selectedReport === "staff" &&
+                  staffPerformanceData.map((s) => (
+                    <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-2.5 font-bold text-slate-900">
+                        {s.name} <span className="text-xs text-slate-500 font-normal">({s.role})</span>
+                      </td>
+                      <td className="px-3 py-2.5 mono text-zinc-500">{s.code}</td>
+                      <td className="px-4 py-2.5 text-center mono font-medium">{s.invoicesCount}</td>
+                      <td className="px-4 py-2.5 text-right mono font-bold text-indigo-700">
+                        {formatCurrency(s.billedAmount)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right mono font-bold text-emerald-700">
+                        {formatCurrency(s.collectionsAmount)}
                       </td>
                     </tr>
                   ))}

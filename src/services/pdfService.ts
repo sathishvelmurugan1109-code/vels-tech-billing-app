@@ -93,28 +93,11 @@ export function openInvoiceForPrint(inv: Invoice, settings: CompanySettings): vo
   const html = buildInvoiceHtmlDoc(inv, settings, logoImg || "");
   const win = window.open("", "_blank", "noopener,noreferrer");
   if (!win) return;
-  win.document.write(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <title>Invoice ${inv.invoiceNo}</title>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
-        <style>
-          @page { size: A4; margin: 0; }
-          body { margin: 0; font-family: 'Inter', sans-serif; }
-          @media print {
-            body { -webkit-print-color-adjust: exact; }
-            .no-print { display: none !important; }
-          }
-        </style>
-      </head>
-      <body>${html}</body>
-    </html>
-  `);
+  win.document.open();
+  win.document.write(html);
   win.document.close();
   win.focus();
-  win.print();
+  setTimeout(() => { try { win.print(); } catch {} }, 250);
 }
 
 /** Download a Blob as a file. */

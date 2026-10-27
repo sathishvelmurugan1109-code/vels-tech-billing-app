@@ -291,29 +291,65 @@ export function InvoicesPage({
               {/* Action buttons on mobile with 44px min touch target */}
               <div className="pt-2 flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={() => onViewInvoice(inv)}
-                  className="flex-1 min-h-[44px] rounded-xl bg-zinc-900 text-white font-semibold text-[12px] flex items-center justify-center gap-1.5"
+                  className="flex-1 min-h-[44px] rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-semibold text-[12px] flex items-center justify-center gap-1.5 transition"
                 >
                   <Eye className="h-4 w-4" /> View / Print
                 </button>
                 <button
+                  type="button"
+                  title="Download PDF"
                   onClick={() => onDownloadPdf?.(inv)}
-                  className="h-11 w-11 rounded-xl bg-indigo-600 text-white grid place-items-center shrink-0"
+                  className="h-11 w-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white grid place-items-center shrink-0 transition"
                 >
                   <Download className="h-4 w-4" />
                 </button>
                 <button
+                  type="button"
+                  title="Share WhatsApp"
                   onClick={() => handleWhatsAppQuick(inv)}
-                  className="h-11 w-11 rounded-xl bg-[#25D366] text-white grid place-items-center shrink-0"
+                  className="h-11 w-11 rounded-xl bg-[#25D366] hover:bg-[#20ba5a] text-white grid place-items-center shrink-0 transition"
                 >
                   <Smartphone className="h-4 w-4" />
                 </button>
                 {inv.status !== "Cancelled" && (
                   <button
+                    type="button"
+                    title="Sales Return"
                     onClick={() => onSalesReturn(inv)}
-                    className="h-11 px-3 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 font-semibold text-[12px] flex items-center gap-1 shrink-0"
+                    className="h-11 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-semibold text-[12px] flex items-center gap-1 shrink-0 transition"
                   >
                     <RotateCcw className="h-4 w-4" /> Return
+                  </button>
+                )}
+              </div>
+
+              {/* Secondary actions on mobile: Edit, Duplicate, Cancel */}
+              <div className="flex items-center gap-2 pt-1 border-t border-zinc-100">
+                {inv.status !== "Cancelled" && (
+                  <button
+                    type="button"
+                    onClick={() => onEditInvoice(inv)}
+                    className="flex-1 min-h-[38px] rounded-xl border border-zinc-200 hover:bg-zinc-100 text-zinc-700 font-semibold text-[11px] flex items-center justify-center gap-1 transition"
+                  >
+                    <Edit3 className="h-3.5 w-3.5 text-zinc-500" /> Edit
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onDuplicateInvoice(inv)}
+                  className="flex-1 min-h-[38px] rounded-xl border border-zinc-200 hover:bg-zinc-100 text-zinc-700 font-semibold text-[11px] flex items-center justify-center gap-1 transition"
+                >
+                  <Copy className="h-3.5 w-3.5 text-zinc-500" /> Duplicate
+                </button>
+                {inv.status !== "Cancelled" && (
+                  <button
+                    type="button"
+                    onClick={() => onCancelInvoice(inv)}
+                    className="min-h-[38px] px-3 rounded-xl border border-rose-200 bg-rose-50/50 hover:bg-rose-100 text-rose-700 font-semibold text-[11px] flex items-center justify-center gap-1 transition"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Cancel
                   </button>
                 )}
               </div>

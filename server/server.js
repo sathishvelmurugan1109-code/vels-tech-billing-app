@@ -13,6 +13,7 @@ const { authenticate } = require("./middleware/auth");
 const authRoutes = require("./routes/auth");
 const businessRoutes = require("./routes/business");
 const invoiceRoutes = require("./routes/invoices");
+const staffRoutes = require("./routes/staff");
 const createCrudRoutes = require("./routes/crudFactory");
 
 // Models
@@ -79,6 +80,7 @@ app.use("/api/auth", authRoutes);
 
 // Business routes (protected)
 app.use("/api/business", businessRoutes);
+app.use("/api/staff", staffRoutes);
 
 // CRUD routes (protected)
 app.use("/api/products", createCrudRoutes(Product));

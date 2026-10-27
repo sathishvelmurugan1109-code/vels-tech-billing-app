@@ -334,7 +334,7 @@ export function buildInvoiceHtmlDoc(inv: Invoice, settings: CompanySettings, inv
 
   <div style="margin-top:32px; display:flex; justify-content:space-between; align-items:flex-end;" class="avoid-break">
     <div style="font-size:10px; color:#64748b;">
-      ${escapeHtml(settings.footerMessage || "Thank you for your business! Computer generated invoice.")}
+      ${inv.staffName ? `Billed by: ${escapeHtml(inv.staffName)} &bull; ` : ""}${escapeHtml(settings.footerMessage || "Thank you for your business! Computer generated invoice.")}
     </div>
     <div style="text-align:center;">
       <div style="height:36px; border-bottom:1px solid #94a3b8; width:160px; margin-bottom:4px;"></div>
@@ -687,7 +687,9 @@ export function InvoiceRenderer({ invoice, settings, invoiceLogo, isPrintArea = 
             </div>
 
             <div className="mt-8 pt-6 border-t border-zinc-200 flex justify-between items-end">
-              <div className="text-[10px] text-zinc-400">Customer Signature</div>
+              <div className="text-[10px] text-zinc-400">
+                {invoice.staffName ? `Billed by: ${invoice.staffName}` : "Customer Signature"}
+              </div>
               <div className="text-center">
                 <div className="h-8 w-32 border-b border-zinc-300 mb-1" />
                 <div className="text-[11px] font-semibold">For {settings.companyName}</div>

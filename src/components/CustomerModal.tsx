@@ -34,7 +34,7 @@ export interface CustomerModalProps {
   customer: Customer | null;
   existingCustomers: Customer[];
   defaultState?: string;
-  onSave: (customerData: Omit<Customer, "id"> & { id?: string }) => void;
+  onSave: (customerData: Omit<Customer, "id"> & { id?: string }) => Promise<void> | void;
   onSelectExisting?: (customerId: string) => void;
   onClose: () => void;
 }
@@ -58,6 +58,7 @@ export function CustomerModal({
   );
   const [notes, setNotes] = useState(customer?.notes || "");
   const [error, setError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const [duplicateCustomer, setDuplicateCustomer] = useState<Customer | null>(null);
   const submitting = useRef(false);
 
@@ -69,56 +70,82 @@ export function CustomerModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (submitting.current) return;
-    if (!name.trim()) {
-      setError("Customer name is required");
+    if (isSaving || submitting.current) return;
+    setError("");
+
+    const trimmedName = name.trim();
+    const trimmedPhone = phone.trim();
+    const trimmedEmail = email.trim();
+    const trimmedGstin = gstin.trim().toUpperCase();
+
+    if (!trimmedName) {
+      setError("Customer name is required.");
       return;
     }
-    if (normalizeWaNumber(phone).digits10.length !== 10) {
-      setError("Enter a valid 10-digit mobile number.");
+
+    if (trimmedPhone && normalizeWaNumber(trimmedPhone).digits10.length !== 10) {
+      setError("Please enter a valid 10-digit mobile number.");
       return;
     }
-    submitting.current = true;
+
+    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
+    if (trimmedGstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(trimmedGstin)) {
+      setError("Please enter a valid 15-character GSTIN (e.g. 33ABCDE1234F1Z5).");
+      return;
+    }
 
     if (!customer) {
-      const phoneDigits = normalizeWaNumber(phone).digits10;
-      const normalizedEmail = email.trim().toLowerCase();
-      const duplicate = existingCustomers.find((existing) => {
-        const existingPhone = normalizeWaNumber(existing.phone).digits10;
-        const samePhone =
-          phoneDigits && phoneDigits === existingPhone;
-        const sameEmail =
-          normalizedEmail &&
-          normalizedEmail === String(existing.email || "").trim().toLowerCase();
-        return samePhone || sameEmail;
-      });
-      if (duplicate) {
-        setDuplicateCustomer(duplicate);
-        setError("");
-        submitting.current = false;
-        return;
+      const phoneDigits = trimmedPhone ? normalizeWaNumber(trimmedPhone).digits10 : "";
+      const normEmail = trimmedEmail.toLowerCase();
+      if (phoneDigits || normEmail) {
+        const duplicate = existingCustomers.find((existing) => {
+          const existingPhone = existing.phone ? normalizeWaNumber(existing.phone).digits10 : "";
+          const samePhone = phoneDigits && phoneDigits === existingPhone;
+          const sameEmail =
+            normEmail &&
+            normEmail === String(existing.email || "").trim().toLowerCase();
+          return samePhone || sameEmail;
+        });
+        if (duplicate) {
+          setDuplicateCustomer(duplicate);
+          return;
+        }
       }
     }
 
     setDuplicateCustomer(null);
-    onSave({
-      id: customer?.id,
-      name: name.trim(),
-      phone: phone.trim(),
-      email: email.trim() || undefined,
-      gstin: gstin.trim().toUpperCase(),
-      address: address.trim(),
-      state: state.trim() || defaultState,
-      openingBalance:
-        typeof openingBalance === "number"
-          ? openingBalance
-          : openingBalance !== ""
-          ? parseFloat(String(openingBalance)) || 0
-          : 0,
-      notes: notes.trim() || undefined,
-    });
+    submitting.current = true;
+    setIsSaving(true);
+
+    try {
+      await onSave({
+        id: customer?.id,
+        name: trimmedName,
+        phone: trimmedPhone,
+        email: trimmedEmail || undefined,
+        gstin: trimmedGstin,
+        address: address.trim(),
+        state: state.trim() || defaultState,
+        openingBalance:
+          typeof openingBalance === "number"
+            ? openingBalance
+            : openingBalance !== ""
+            ? parseFloat(String(openingBalance)) || 0
+            : 0,
+        notes: notes.trim() || undefined,
+      });
+    } catch (err: any) {
+      setError(err?.message || "Failed to save customer. Please check backend connection and try again.");
+    } finally {
+      submitting.current = false;
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -197,14 +224,13 @@ export function CustomerModal({
 
             <div>
               <label className="text-[11px] font-bold text-zinc-600 uppercase">
-                MOBILE / WHATSAPP NUMBER *
+                MOBILE / WHATSAPP NUMBER (OPTIONAL)
               </label>
               <input
                 type="tel"
-                required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="9876543210"
+                placeholder="9876543210 (10 digits)"
                 className="mt-1 w-full h-11 px-3.5 rounded-xl border border-zinc-200 text-[13px] mono focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               />
             </div>
@@ -288,12 +314,14 @@ export function CustomerModal({
           <div className="pt-4 border-t border-zinc-100 flex gap-2">
             <button
               type="submit"
-              className="flex-1 h-11 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-semibold text-[13px] transition"
+              disabled={isSaving}
+              className="flex-1 h-11 rounded-xl bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-400 text-white font-semibold text-[13px] transition flex items-center justify-center gap-2"
             >
-              {customer ? "Save Changes" : "Create Customer"}
+              {isSaving ? "Saving Customer..." : customer ? "Save Changes" : "Create Customer"}
             </button>
             <button
               type="button"
+              disabled={isSaving}
               onClick={onClose}
               className="h-11 px-5 rounded-xl border border-zinc-200 hover:bg-zinc-50 text-[13px] font-medium text-zinc-700 transition"
             >
