@@ -19,6 +19,8 @@ export type StaffPermission =
 
 export interface StaffMember {
   id: string;
+  _id?: string;
+  businessId?: string;
   employeeCode: string;
   name: string;
   phone?: string;
@@ -29,6 +31,7 @@ export interface StaffMember {
   permissions: StaffPermission[];
   createdAt: string;
   updatedAt?: string;
+  lastActiveAt?: string;
 }
 
 export type UnitType =

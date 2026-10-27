@@ -3,6 +3,7 @@
  */
 
 import type { StaffMember, StaffPermission, StaffRole } from "../types";
+import { api } from "./apiService";
 
 export const ALL_PERMISSIONS: StaffPermission[] = [
   "invoices:create",
@@ -128,11 +129,23 @@ export function isPrivilegedAction(permission: StaffPermission): boolean {
 }
 
 /**
- * Verifies staff PIN.
+ * Verifies staff PIN synchronously (offline/unit-test fallback).
  */
 export function verifyStaffPin(staff: StaffMember | null | undefined, inputPin: string): boolean {
   if (!staff || !staff.pin) return false;
   return staff.pin.trim() === inputPin.trim();
+}
+
+/**
+ * Verifies staff PIN securely via server API.
+ */
+export async function verifyStaffPinServer(inputPin: string, staffId?: string): Promise<{ valid: boolean; staff?: StaffMember; message?: string }> {
+  try {
+    const res = await api.staff.verifyPin(inputPin, staffId);
+    return { valid: !!res?.valid, staff: res?.staff };
+  } catch (err: any) {
+    return { valid: false, message: err?.message || "PIN verification failed" };
+  }
 }
 
 /**

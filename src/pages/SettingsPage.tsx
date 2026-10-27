@@ -23,6 +23,7 @@ export interface SettingsPageProps {
   onExportBackup: () => boolean | void;
   onImportBackup: () => void;
   onResetData: () => void;
+  onManageBusinesses?: () => void;
 }
 
 export function SettingsPage({
@@ -31,6 +32,7 @@ export function SettingsPage({
   onExportBackup,
   onImportBackup,
   onResetData,
+  onManageBusinesses,
 }: SettingsPageProps) {
   const [activeTab, setActiveTab] = useState<
     "business" | "invoice" | "tax" | "payments" | "backup"
@@ -181,11 +183,23 @@ export function SettingsPage({
       {/* Tab 1: Business Details */}
       {activeTab === "business" && (
         <div className="rounded-[22px] bg-white border border-zinc-200 p-6 shadow-sm space-y-5">
-          <div>
-            <h3 className="font-extrabold text-[16px] text-zinc-900">Company & Shop Profile</h3>
-            <p className="text-[12px] text-zinc-500 mt-0.5">
-              These details appear on your printed invoices, tax headers, and WhatsApp messages.
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-zinc-100">
+            <div>
+              <h3 className="font-extrabold text-[16px] text-zinc-900">Company & Shop Profile</h3>
+              <p className="text-[12px] text-zinc-500 mt-0.5">
+                These details appear on your printed invoices, tax headers, and WhatsApp messages.
+              </p>
+            </div>
+            {onManageBusinesses && (
+              <button
+                type="button"
+                onClick={onManageBusinesses}
+                className="px-3.5 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 font-bold text-xs flex items-center gap-1.5 transition shrink-0"
+              >
+                <Building2 className="w-4 h-4" />
+                <span>Manage Businesses / Branches</span>
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

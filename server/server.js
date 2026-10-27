@@ -87,7 +87,6 @@ app.use("/api/products", createCrudRoutes(Product));
 app.use("/api/customers", createCrudRoutes(Customer));
 app.use("/api/suppliers", createCrudRoutes(Supplier));
 app.use("/api/invoices", invoiceRoutes);
-app.use("/api/invoices", createCrudRoutes(Invoice));
 app.use("/api/purchases", createCrudRoutes(Purchase));
 app.use("/api/payments", createCrudRoutes(Payment));
 app.use("/api/expenses", createCrudRoutes(Expense));

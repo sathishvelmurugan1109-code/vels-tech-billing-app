@@ -1,20 +1,35 @@
 import React, { useState, useRef, useEffect } from "react";
-import { User, ChevronDown, Check, Users, Shield, LogOut } from "lucide-react";
+import {
+  User,
+  ChevronDown,
+  Check,
+  Users,
+  Shield,
+  LogOut,
+  Building2,
+  Lock,
+} from "lucide-react";
 import type { StaffMember } from "../types";
 import { ROLE_LABELS } from "../services/staffService";
 
 export interface HeaderStaffSwitcherProps {
   currentStaff: StaffMember | null;
   staffList: StaffMember[];
+  currentBusiness?: any;
   onSelectStaff: (staff: StaffMember) => void;
   onOpenStaffManagement: () => void;
+  onOpenBusinessManagement?: () => void;
+  onLockTerminal: () => void;
 }
 
 export function HeaderStaffSwitcher({
   currentStaff,
   staffList,
+  currentBusiness,
   onSelectStaff,
   onOpenStaffManagement,
+  onOpenBusinessManagement,
+  onLockTerminal,
 }: HeaderStaffSwitcherProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -52,6 +67,8 @@ export function HeaderStaffSwitcher({
     }
   };
 
+  const isPrivileged = currentStaff?.role === "owner" || currentStaff?.role === "admin";
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Switcher Button */}
@@ -59,7 +76,7 @@ export function HeaderStaffSwitcher({
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 transition shadow-xs"
-        title="Switch active staff member"
+        title="Active staff and business menu"
       >
         <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold flex items-center justify-center text-xs">
           {currentStaff
@@ -72,8 +89,13 @@ export function HeaderStaffSwitcher({
             : "ST"}
         </div>
         <div className="text-left hidden sm:block">
-          <div className="text-xs font-semibold text-slate-900 leading-tight">
-            {currentStaff ? currentStaff.name : "Select Staff"}
+          <div className="text-xs font-semibold text-slate-900 leading-tight flex items-center gap-1.5">
+            <span>{currentStaff ? currentStaff.name : "Select Staff"}</span>
+            {currentBusiness?.businessName && (
+              <span className="text-[10px] font-normal text-indigo-600 bg-indigo-50 px-1 rounded">
+                {currentBusiness.businessName}
+              </span>
+            )}
           </div>
           <div className="text-[10px] text-slate-500 font-medium">
             {currentStaff ? ROLE_LABELS[currentStaff.role] || currentStaff.role : "No Staff Active"}
@@ -108,13 +130,13 @@ export function HeaderStaffSwitcher({
 
           <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 p-1">
             {filteredStaff.map((staff) => {
-              const isSelected = currentStaff?.id === staff.id;
+              const isSelected = currentStaff?.id === staff.id || (currentStaff as any)?._id === staff.id;
               return (
                 <button
-                  key={staff.id}
+                  key={staff.id || staff._id}
                   onClick={() => {
-                    onSelectStaff(staff);
                     setIsOpen(false);
+                    onSelectStaff(staff);
                   }}
                   className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-colors ${
                     isSelected ? "bg-indigo-50/70" : "hover:bg-slate-50"
@@ -155,16 +177,44 @@ export function HeaderStaffSwitcher({
             })}
           </div>
 
-          <div className="p-2 border-t border-slate-100 bg-slate-50/50">
+          {/* Quick Action Controls */}
+          <div className="p-2 border-t border-slate-100 bg-slate-50/60 space-y-1">
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                onLockTerminal();
+              }}
+              className="w-full flex items-center justify-between py-2 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition"
+            >
+              <div className="flex items-center gap-2">
+                <Lock className="w-3.5 h-3.5 text-amber-600" />
+                <span>Lock Terminal (PIN Screen)</span>
+              </div>
+              <span className="text-[10px] font-mono text-slate-400">Shift handoff</span>
+            </button>
+
+            {onOpenBusinessManagement && isPrivileged && (
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  onOpenBusinessManagement();
+                }}
+                className="w-full flex items-center gap-2 py-2 px-3 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 rounded-xl transition"
+              >
+                <Building2 className="w-3.5 h-3.5" />
+                <span>Manage Businesses & Branches</span>
+              </button>
+            )}
+
             <button
               onClick={() => {
                 setIsOpen(false);
                 onOpenStaffManagement();
               }}
-              className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 rounded-xl transition-colors"
+              className="w-full flex items-center gap-2 py-2 px-3 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 rounded-xl transition"
             >
               <Shield className="w-3.5 h-3.5" />
-              Manage Staff & Permissions
+              <span>Manage Staff & Permissions</span>
             </button>
           </div>
         </div>

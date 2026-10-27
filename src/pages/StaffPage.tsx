@@ -22,6 +22,7 @@ export interface StaffPageProps {
   onAddStaff: () => void;
   onEditStaff: (staff: StaffMember) => void;
   onToggleStatus: (staff: StaffMember) => void;
+  onResetPin?: (staff: StaffMember) => void;
   onRequestPinVerification: (actionTitle: string, callback: () => void) => void;
 }
 
@@ -31,6 +32,7 @@ export function StaffPage({
   onAddStaff,
   onEditStaff,
   onToggleStatus,
+  onResetPin,
   onRequestPinVerification,
 }: StaffPageProps) {
   const [search, setSearch] = useState("");
@@ -288,6 +290,21 @@ export function StaffPage({
                       </td>
                       <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          {onResetPin && (
+                            <button
+                              onClick={() => {
+                                if (!canManageStaff) {
+                                  onRequestPinVerification(`Reset PIN for ${staff.name}`, () => onResetPin(staff));
+                                } else {
+                                  onResetPin(staff);
+                                }
+                              }}
+                              className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                              title="Reset Security PIN"
+                            >
+                              <KeyRound className="w-4 h-4" />
+                            </button>
+                          )}
                           <button
                             onClick={() => handleProtectedEdit(staff)}
                             className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"

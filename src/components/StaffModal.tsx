@@ -98,20 +98,25 @@ export function StaffModal({
       return;
     }
 
-    if (!pin.trim() || pin.length < 4) {
-      setError("A security PIN of at least 4 digits is required.");
+    if (!staff && (!pin.trim() || pin.length < 4)) {
+      setError("A security PIN of 4 to 6 digits is required for new staff.");
+      return;
+    }
+
+    if (pin.trim() && !/^\d{4,6}$/.test(pin.trim())) {
+      setError("PIN must be 4 to 6 numeric digits.");
       return;
     }
 
     const payload: StaffMember = {
-      id: staff?.id || `staff_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      id: staff?.id || (staff as any)?._id || `staff_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       employeeCode: employeeCode.trim(),
       name: name.trim(),
       phone: phone.trim() || undefined,
       email: email.trim() || undefined,
       role,
       status,
-      pin: pin.trim(),
+      pin: pin.trim() || undefined,
       permissions: permissions.length > 0 ? permissions : ROLE_DEFAULT_PERMISSIONS[role],
       createdAt: staff?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),

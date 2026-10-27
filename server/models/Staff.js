@@ -51,6 +51,18 @@ const staffSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    lastActiveAt: {
+      type: Date,
+      default: null,
+    },
+    failedPinAttempts: {
+      type: Number,
+      default: 0,
+    },
+    lockoutUntil: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

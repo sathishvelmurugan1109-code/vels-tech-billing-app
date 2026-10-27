@@ -97,6 +97,9 @@ import { NotificationsPopover } from "./components/NotificationsPopover";
 import { HeaderStaffSwitcher } from "./components/HeaderStaffSwitcher";
 import { StaffModal } from "./components/StaffModal";
 import { PinVerificationModal } from "./components/PinVerificationModal";
+import { StaffLoginScreen } from "./components/StaffLoginScreen";
+import { BusinessManagementModal } from "./components/BusinessManagementModal";
+import { authService, type StaffSessionResponse } from "./services/authService";
 
 // Pages
 import { DashboardPage } from "./pages/DashboardPage";
@@ -244,23 +247,34 @@ export default function App() {
     safeGetStorage(STORAGE_KEYS.EXPENSES, []),
   );
 
+  // --- Authentication & Multi-Tenant Business State ---
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => authService.isAuthenticated());
+  const [authChecking, setAuthChecking] = useState<boolean>(true);
+  const [currentBusiness, setCurrentBusiness] = useState<any>(() => authService.getBusiness());
+  const [showBusinessModal, setShowBusinessModal] = useState<boolean>(false);
+
   // --- Staff & Multi-User State ---
   const [staffList, setStaffList] = useState<StaffMember[]>(() =>
     safeGetStorage(STORAGE_KEYS.STAFF, seedStaff),
   );
   const [activeStaffId, setActiveStaffId] = useState<string>(() => {
+    const authStaff = authService.getStaff();
+    if (authStaff?.id) return authStaff.id;
     const stored = safeGetStorage<string>(STORAGE_KEYS.ACTIVE_STAFF_ID, "");
     return stored || seedStaff[0].id;
   });
 
   const currentStaff = useMemo(() => {
+    const fromAuth = authService.getStaff();
+    if (fromAuth && fromAuth.id === activeStaffId) return fromAuth;
     return (
-      staffList.find((s) => s.id === activeStaffId && s.status === "active") ||
+      staffList.find((s) => (s.id === activeStaffId || (s as any)._id === activeStaffId) && s.status === "active") ||
       staffList.find((s) => s.status === "active") ||
+      fromAuth ||
       staffList[0] ||
       null
     );
-  }, [staffList, activeStaffId]);
+  }, [staffList, activeStaffId, isAuthenticated]);
 
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [editingStaffMember, setEditingStaffMember] = useState<StaffMember | null>(null);
@@ -401,74 +415,90 @@ export default function App() {
   setWaLogo(invoiceLogo);
   setPdfLogo(invoiceLogo);
 
-  // --- Sync state to MongoDB (debounced) ---
-  const isMongoId = (v: any) => typeof v === "string" && /^[a-f0-9]{24}$/i.test(v);
-
-  const syncArrayToApi = async (resource: any, items: any[]) => {
-    // Offline-first: cloud sync disabled (no auth)
-    return;
-    for (const item of items) {
-      try {
-        if (isMongoId(item?.id)) {
-          await resource.update(item.id, item);
-        } else {
-          const created = await resource.create(item);
-          if (created?.id) item.id = created.id;
-        }
-      } catch (e) {
-        console.warn("Sync item failed:", e);
-      }
-    }
-  };
-
-  const syncTimer = useRef<any>(null);
-  useEffect(() => {
-    if (!dataLoaded) return;
-    if (syncTimer.current) clearTimeout(syncTimer.current);
-    syncTimer.current = setTimeout(async () => {
-      try {
-        await Promise.all([
-          syncArrayToApi(api.products, products),
-          syncArrayToApi(api.customers, customers),
-          syncArrayToApi(api.suppliers, suppliers),
-          syncArrayToApi(api.invoices, invoices),
-          syncArrayToApi(api.purchases, purchases),
-          syncArrayToApi(api.payments, payments),
-          syncArrayToApi(api.stockMovements, stockMovements),
-          syncArrayToApi(api.expenses, expenses),
-        ]);
-        if (false) {
-          await api.updateSettings(settings).catch(() => {});
-        }
-      } catch (e) {
-        console.warn("Sync to API failed:", e);
-      }
-    }, 3000);
-    return () => { if (syncTimer.current) clearTimeout(syncTimer.current); };
-  }, [products, customers, suppliers, invoices, purchases, payments, stockMovements, expenses, settings, dataLoaded]);
-
-
-  // Persist State to LocalStorage
+  // Session verification on mount
   useEffect(() => {
     let alive = true;
-    api.customers
-      .list()
-      .then((backendCustomers: Customer[]) => {
-        if (!alive || !Array.isArray(backendCustomers) || backendCustomers.length === 0) return;
-        setCustomers((prev) => {
-          const map = new Map<string, Customer>();
-          prev.forEach((c) => map.set(c.id, c));
-          backendCustomers.forEach((c) => map.set(c.id, { ...map.get(c.id), ...c }));
-          return Array.from(map.values());
-        });
-      })
-      .catch((e) => {
-        console.warn("Could not fetch database customers:", e?.message);
-      });
+    authService.verifySession().then((valid) => {
+      if (!alive) return;
+      setIsAuthenticated(valid);
+      if (valid) {
+        const biz = authService.getBusiness();
+        if (biz) setCurrentBusiness(biz);
+        const stf = authService.getStaff();
+        if (stf?.id) setActiveStaffId(stf.id || (stf as any)._id);
+      }
+      setAuthChecking(false);
+    });
     return () => {
       alive = false;
     };
   }, []);
+
+  // Load authoritative data from backend for active business
+  const loadCloudData = async () => {
+    if (!authService.isAuthenticated()) return;
+    try {
+      const [prods, custs, supps, invs, pays, movs, stf, sett, biz] = await Promise.all([
+        api.products.list().catch(() => null),
+        api.customers.list().catch(() => null),
+        api.suppliers.list().catch(() => null),
+        api.invoices.list().catch(() => null),
+        api.payments.list().catch(() => null),
+        api.stockMovements.list().catch(() => null),
+        api.staff.list().catch(() => null),
+        api.getSettings().catch(() => null),
+        api.getBusiness().catch(() => null),
+      ]);
+      if (Array.isArray(prods) && prods.length > 0) setProducts(prods);
+      if (Array.isArray(custs) && custs.length > 0) setCustomers(custs);
+      if (Array.isArray(supps) && supps.length > 0) setSuppliers(supps);
+      if (Array.isArray(invs) && invs.length > 0) setInvoices(invs);
+      if (Array.isArray(pays) && pays.length > 0) setPayments(pays);
+      if (Array.isArray(movs) && movs.length > 0) setStockMovements(movs);
+      if (Array.isArray(stf) && stf.length > 0) setStaffList(stf);
+      if (sett && Object.keys(sett).length > 0) setSettings((prev) => ({ ...prev, ...sett }));
+      if (biz) setCurrentBusiness(biz);
+    } catch (err) {
+      console.warn("Cloud synchronization error:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    loadCloudData();
+    const handleFocus = () => loadCloudData();
+    window.addEventListener("focus", handleFocus);
+    const interval = setInterval(() => loadCloudData(), 30000);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      clearInterval(interval);
+    };
+  }, [isAuthenticated]);
+
+  const handleStaffAuthenticated = (session: StaffSessionResponse) => {
+    setIsAuthenticated(true);
+    setCurrentBusiness(session.business);
+    if (session.staff) {
+      setActiveStaffId(session.staff.id || (session.staff as any)._id);
+    }
+    loadCloudData();
+  };
+
+  const handleLockTerminal = () => {
+    authService.logout();
+    setIsAuthenticated(false);
+  };
+
+  const handleSwitchStaffWithChallenge = (targetStaff: StaffMember) => {
+    if (targetStaff.id === activeStaffId || (targetStaff as any)._id === activeStaffId) return;
+    requestPinVerification(
+      `Switch to ${targetStaff.name}`,
+      () => {
+        setActiveStaffId(targetStaff.id || (targetStaff as any)._id);
+      },
+      `Please enter ${targetStaff.name}'s security PIN to switch active cashier identity.`
+    );
+  };
 
   useEffect(() => {
     safeSetStorage(STORAGE_KEYS.PRODUCTS, products);
@@ -637,7 +667,7 @@ export default function App() {
     return { invoice: savedInvoice, payment: savedPayment };
   };
 
-  const handleSaveInvoice = (invoice: Invoice) => {
+  const handleSaveInvoice = async (invoice: Invoice) => {
     const invoiceWithStaff: Invoice = {
       ...invoice,
       staffId: invoice.staffId || currentStaff?.id,
@@ -645,30 +675,42 @@ export default function App() {
       staffRole: invoice.staffRole || currentStaff?.role,
     };
 
+    let savedAuthoritative: Invoice = invoiceWithStaff;
+    try {
+      if (!editingInvoiceRecord) {
+        const created = await api.invoices.create(invoiceWithStaff);
+        if (created?.id) {
+          savedAuthoritative = created;
+        }
+      }
+    } catch (err: any) {
+      console.warn("Could not persist invoice to cloud backend:", err.message);
+    }
+
     const oldInvoice = editingInvoiceRecord
       ? invoices.find((i) => i.id === editingInvoiceRecord.id) ?? null
       : null;
 
     if (editingInvoiceRecord) {
-      setInvoices((prev) => prev.map((x) => (x.id === editingInvoiceRecord.id ? invoiceWithStaff : x)));
+      setInvoices((prev) => prev.map((x) => (x.id === editingInvoiceRecord.id ? savedAuthoritative : x)));
     } else {
-      setInvoices((prev) => [...prev, invoiceWithStaff]);
+      setInvoices((prev) => [savedAuthoritative, ...prev]);
 
       // If invoice was paid (Cash, Card, or partial payment), record verifiable Payment receipt
-      if (invoiceWithStaff.paidAmount > 0) {
+      if (savedAuthoritative.paidAmount > 0) {
         const paymentRecord: Payment = {
           id: `pay_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
           receiptNo: `REC-${String(Date.now()).slice(-6)}`,
-          date: invoiceWithStaff.date,
+          date: savedAuthoritative.date,
           partyType: "customer",
-          partyId: invoiceWithStaff.customerId,
-          partyName: invoiceWithStaff.customerName,
-          partyPhone: invoiceWithStaff.customerPhone,
-          invoiceId: invoiceWithStaff.id,
-          invoiceNo: invoiceWithStaff.invoiceNo,
-          amount: invoiceWithStaff.paidAmount,
-          paymentMode: invoiceWithStaff.paymentMode,
-          notes: `Settled on billing for ${invoiceWithStaff.invoiceNo}`,
+          partyId: savedAuthoritative.customerId,
+          partyName: savedAuthoritative.customerName,
+          partyPhone: savedAuthoritative.customerPhone,
+          invoiceId: savedAuthoritative.id,
+          invoiceNo: savedAuthoritative.invoiceNo,
+          amount: savedAuthoritative.paidAmount,
+          paymentMode: savedAuthoritative.paymentMode,
+          notes: `Settled on billing for ${savedAuthoritative.invoiceNo}`,
           verificationStatus: "verified",
           verificationMethod: "manual",
           verifiedAt: new Date().toISOString(),
@@ -680,7 +722,7 @@ export default function App() {
     }
 
     // Stock difference reconciliation
-    const mutation = planInvoiceMutation(oldInvoice, invoiceWithStaff, { businessState: settings.state });
+    const mutation = planInvoiceMutation(oldInvoice, savedAuthoritative, { businessState: settings.state });
     setProducts((prev) => applyStockChanges(prev, mutation.stockChanges));
 
     // Record Stock Movement Ledger entries
@@ -688,12 +730,12 @@ export default function App() {
       const prod = products.find((p) => p.id === change.productId);
       const sm: StockMovement = {
         id: `sm_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        date: invoiceWithStaff.date,
+        date: savedAuthoritative.date,
         productId: change.productId,
         productName: prod?.name || "Product",
         type: change.delta < 0 ? "Sale" : "Sales Return",
         quantity: change.delta,
-        reference: `Invoice ${invoiceWithStaff.invoiceNo}`,
+        reference: `Invoice ${savedAuthoritative.invoiceNo}`,
         previousStock: prod?.stock || 0,
         newStock: Math.max(0, (prod?.stock || 0) + change.delta),
         staffId: currentStaff?.id,
@@ -705,13 +747,18 @@ export default function App() {
     // Reset billing and open invoice preview
     setEditingInvoiceRecord(null);
     setView("invoices");
-    setViewingInvoice(invoiceWithStaff);
+    setViewingInvoice(savedAuthoritative);
   };
 
   const handleCancelInvoice = (inv: Invoice) => {
     if (inv.status === "Cancelled") return;
 
     const proceedCancel = () => {
+      // Sync cancellation to cloud API
+      api.invoices.cancel(inv.id).catch((err) => {
+        console.warn("Could not cancel invoice on backend API:", err.message);
+      });
+
       const mutation = planInvoiceMutation(inv, null, { businessState: settings.state });
       setInvoices((prev) =>
         prev.map((x) =>
@@ -920,21 +967,80 @@ export default function App() {
   };
 
   // --- Handlers: Products ---
-  const handleSaveProduct = (productData: Omit<Product, "id"> & { id?: string }) => {
+  const handleSaveProduct = async (productData: Omit<Product, "id"> & { id?: string }) => {
+    let savedProduct: Product;
     if (productData.id) {
+      try {
+        savedProduct = await api.products.update(productData.id, productData);
+      } catch (err) {
+        savedProduct = { id: productData.id, ...productData } as Product;
+      }
       setProducts((prev) =>
-        prev.map((p) => (p.id === productData.id ? ({ ...p, ...productData } as Product) : p)),
+        prev.map((p) => (p.id === productData.id ? ({ ...p, ...savedProduct } as Product) : p)),
       );
     } else {
-      const prod: Product = {
-        id: `prod_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        ...productData,
-      } as Product;
-      setProducts((prev) => [...prev, prod]);
+      try {
+        savedProduct = await api.products.create(productData);
+      } catch (err) {
+        savedProduct = {
+          id: `prod_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          ...productData,
+        } as Product;
+      }
+      setProducts((prev) => [...prev, savedProduct]);
     }
     setShowProductModal(false);
     setEditingProduct(null);
     setProductInitialName("");
+  };
+
+  // --- Handlers: Staff Management ---
+  const handleSaveStaffMember = async (savedStaff: StaffMember) => {
+    let res: StaffMember = savedStaff;
+    const isEditing = staffList.some((s) => s.id === savedStaff.id || (s as any)._id === savedStaff.id);
+    try {
+      if (isEditing) {
+        res = await api.staff.update(savedStaff.id, savedStaff);
+      } else {
+        res = await api.staff.create(savedStaff);
+      }
+    } catch (err: any) {
+      console.warn("Could not sync staff to backend:", err.message);
+    }
+    setStaffList((prev) => {
+      const exists = prev.some((s) => s.id === res.id || (s as any)._id === res.id);
+      if (exists) {
+        return prev.map((s) => (s.id === res.id || (s as any)._id === res.id ? res : s));
+      }
+      return [...prev, res];
+    });
+  };
+
+  const handleToggleStaffStatus = async (s: StaffMember) => {
+    const nextStatus = s.status === "active" ? "inactive" : "active";
+    try {
+      await api.staff.update(s.id, { status: nextStatus });
+    } catch (err: any) {
+      console.warn("Could not update staff status on backend:", err.message);
+    }
+    setStaffList((prev) =>
+      prev.map((item) => (item.id === s.id ? { ...item, status: nextStatus } : item))
+    );
+  };
+
+  const handleResetStaffPin = async (s: StaffMember) => {
+    const newPin = window.prompt(`Enter new 4 to 6 digit security PIN for ${s.name}:`);
+    if (!newPin) return;
+    if (!/^\d{4,6}$/.test(newPin.trim())) {
+      alert("PIN must be 4 to 6 numeric digits.");
+      return;
+    }
+    try {
+      await api.staff.resetPin(s.id, newPin.trim());
+      alert(`Security PIN for ${s.name} updated successfully.`);
+    } catch (err: any) {
+      alert(`Could not reset PIN: ${err.message}`);
+    }
   };
 
   // --- Handlers: Customers ---
@@ -1117,6 +1223,24 @@ export default function App() {
     });
     return Array.from(set);
   }, [products]);
+
+  // Login-Free Staff Selection Flow
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
+        <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center mb-4">
+          <div className="w-6 h-6 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+        </div>
+        <p className="text-slate-400 text-sm font-medium animate-pulse">
+          Initializing Vels Tech Secure Terminal...
+        </p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <StaffLoginScreen onAuthenticated={handleStaffAuthenticated} />;
+  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-zinc-900 font-sans selection:bg-indigo-100">
@@ -1303,8 +1427,11 @@ export default function App() {
             <HeaderStaffSwitcher
               currentStaff={currentStaff}
               staffList={staffList}
-              onSelectStaff={(s) => setActiveStaffId(s.id)}
+              currentBusiness={currentBusiness}
+              onSelectStaff={handleSwitchStaffWithChallenge}
               onOpenStaffManagement={() => setView("staff")}
+              onOpenBusinessManagement={() => setShowBusinessModal(true)}
+              onLockTerminal={handleLockTerminal}
             />
             <button
               type="button"
@@ -1361,8 +1488,11 @@ export default function App() {
               <HeaderStaffSwitcher
                 currentStaff={currentStaff}
                 staffList={staffList}
-                onSelectStaff={(s) => setActiveStaffId(s.id)}
+                currentBusiness={currentBusiness}
+                onSelectStaff={handleSwitchStaffWithChallenge}
                 onOpenStaffManagement={() => setView("staff")}
+                onOpenBusinessManagement={() => setShowBusinessModal(true)}
+                onLockTerminal={handleLockTerminal}
               />
               <div className="relative">
                 <button
@@ -1643,15 +1773,8 @@ export default function App() {
                 setEditingStaffMember(s);
                 setShowStaffModal(true);
               }}
-              onToggleStatus={(s) => {
-                setStaffList((prev) =>
-                  prev.map((item) =>
-                    item.id === s.id
-                      ? { ...item, status: item.status === "active" ? "inactive" : "active" }
-                      : item
-                  )
-                );
-              }}
+              onToggleStatus={handleToggleStaffStatus}
+              onResetPin={handleResetStaffPin}
               onRequestPinVerification={requestPinVerification}
             />
           )}
@@ -1659,10 +1782,14 @@ export default function App() {
           {view === "settings" && (
             <SettingsPage
               settings={settings}
-              onUpdateSettings={(updated) => setSettings(updated)}
+              onUpdateSettings={(updated) => {
+                setSettings(updated);
+                api.updateSettings(updated).catch(() => {});
+              }}
               onExportBackup={handleExportBackup}
               onImportBackup={handleImportBackup}
               onResetData={handleResetData}
+              onManageBusinesses={() => setShowBusinessModal(true)}
             />
           )}
         </div>
@@ -2032,15 +2159,7 @@ export default function App() {
           isOpen={showStaffModal}
           staff={editingStaffMember}
           existingStaff={staffList}
-          onSave={(savedStaff) => {
-            setStaffList((prev) => {
-              const exists = prev.some((s) => s.id === savedStaff.id);
-              if (exists) {
-                return prev.map((s) => (s.id === savedStaff.id ? savedStaff : s));
-              }
-              return [...prev, savedStaff];
-            });
-          }}
+          onSave={handleSaveStaffMember}
           onClose={() => {
             setShowStaffModal(false);
             setEditingStaffMember(null);
@@ -2066,6 +2185,20 @@ export default function App() {
           onClose={() => {
             setPinModalOpen(false);
             setPinModalCallback(null);
+          }}
+        />
+      )}
+
+      {/* 16. Multi-Business / Branch Management Modal */}
+      {showBusinessModal && (
+        <BusinessManagementModal
+          isOpen={showBusinessModal}
+          currentBusiness={currentBusiness}
+          onClose={() => setShowBusinessModal(false)}
+          onSelectBusiness={(biz) => {
+            setCurrentBusiness(biz);
+            authService.setLastBusinessId(biz.businessId || biz.id);
+            loadCloudData();
           }}
         />
       )}

@@ -1,18 +1,13 @@
-// src/services/apiService.ts — HTTP client for the billing backend API.
-// Handles auth headers, JSON parsing, error handling, and base URL resolution.
-
+// src/services/apiService.ts — Enterprise HTTP Client for Multi-Tenant Billing API
 import { authService } from "./authService";
 
 declare const __VITE_API_URL__: string | undefined;
 
-// API base URL — use VITE_API_URL for your environment.
-// Development (desktop): VITE_API_URL=http://localhost:5000
-// Development (mobile): VITE_API_URL=http://YOUR_LAN_IP:5000
-// Production: VITE_API_URL=https://api.your-domain.com
+// API base URL resolution
 const API_BASE =
   typeof __VITE_API_URL__ !== "undefined"
     ? __VITE_API_URL__
-    : "";
+    : ((globalThis as any).process?.env?.VITE_API_URL as string) || "";
 
 function getHeaders(extra: Record<string, string> = {}): Record<string, string> {
   const headers: Record<string, string> = {
@@ -38,14 +33,38 @@ async function request<T = any>(
 
   if (!res.ok) {
     const msg = data?.message || `Request failed (${res.status})`;
-    throw new Error(msg);
+    const error: any = new Error(msg);
+    error.status = res.status;
+    error.data = data;
+    throw error;
   }
 
   return data as T;
 }
 
 export const api = {
-  // Auth
+  // Staff & Business Authentication (Login-free PIN Entry Flow)
+  getBusinesses: () =>
+    request<Array<{
+      id: string;
+      _id: string;
+      businessId: string;
+      businessName: string;
+      location: string;
+      logoText: string;
+      invoicePrefix: string;
+    }>>("/api/auth/businesses"),
+
+  getBusinessStaff: (businessId: string) =>
+    request<any[]>(`/api/auth/businesses/${businessId}/staff`),
+
+  createStaffSession: (payload: { businessId: string; staffId: string; pin: string }) =>
+    request<{ token: string; staff: any; business: any }>("/api/auth/staff-session", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  // Legacy / Master Admin Auth
   login: (email: string, password: string) =>
     request("/api/auth/login", {
       method: "POST",
@@ -62,13 +81,34 @@ export const api = {
 
   logout: () => request("/api/auth/logout", { method: "POST" }),
 
-  // Business
+  // Business Management
   getBusiness: () => request("/api/business/current"),
   updateBusiness: (data: any) =>
     request("/api/business/current", { method: "PUT", body: JSON.stringify(data) }),
   getSettings: () => request("/api/business/settings"),
   updateSettings: (data: any) =>
     request("/api/business/settings", { method: "PUT", body: JSON.stringify(data) }),
+  listAllBusinesses: () => request<any[]>("/api/business/all"),
+  createBusiness: (data: any) =>
+    request("/api/business", { method: "POST", body: JSON.stringify(data) }),
+  updateBusinessStatus: (id: string, status: string) =>
+    request(`/api/business/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) }),
+
+  // Staff Management
+  staff: {
+    list: () => request<any[]>("/api/staff"),
+    get: (id: string) => request<any>(`/api/staff/${id}`),
+    create: (data: any) => request("/api/staff", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: string, data: any) => request(`/api/staff/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    remove: (id: string) => request(`/api/staff/${id}`, { method: "DELETE" }),
+    resetPin: (id: string, newPin: string) =>
+      request(`/api/staff/${id}/reset-pin`, { method: "POST", body: JSON.stringify({ newPin }) }),
+    verifyPin: (pin: string, staffId?: string) =>
+      request<{ valid: boolean; staff?: any }>("/api/staff/verify-pin", {
+        method: "POST",
+        body: JSON.stringify({ pin, staffId }),
+      }),
+  },
 
   // Generic CRUD helpers
   list: (resource: string) => request(`/${resource}`),
@@ -105,11 +145,14 @@ export const api = {
   invoices: {
     list: () => request("/api/invoices"),
     get: (id: string) => request(`/api/invoices/${id}`),
+    nextNumber: () => request<{ invoiceNo: string; sequence: number }>("/api/invoices/next-number", { method: "POST" }),
     create: (data: any) => request("/api/invoices", { method: "POST", body: JSON.stringify(data) }),
     createDraft: (data: any) =>
       request("/api/invoices/drafts", { method: "POST", body: JSON.stringify(data) }),
     confirmManualPayment: (id: string) =>
       request(`/api/invoices/${id}/manual-payment`, { method: "POST", body: "{}" }),
+    cancel: (id: string) =>
+      request(`/api/invoices/${id}/cancel`, { method: "POST" }),
     update: (id: string, data: any) => request(`/api/invoices/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     remove: (id: string) => request(`/api/invoices/${id}`, { method: "DELETE" }),
   },

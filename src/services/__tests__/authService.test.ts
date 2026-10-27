@@ -194,3 +194,77 @@ describe("authService — verifySession", () => {
     cleanup();
   });
 });
+
+
+describe("authService — loginWithPin", () => {
+  it("rejects empty business or staff id", async () => {
+    await assert.rejects(
+      authService.loginWithPin("", "staff-1", "1234"),
+      /Please select both a business and a staff member/,
+    );
+    await assert.rejects(
+      authService.loginWithPin("biz-1", "", "1234"),
+      /Please select both a business and a staff member/,
+    );
+    cleanup();
+  });
+
+  it("rejects invalid PIN format", async () => {
+    await assert.rejects(
+      authService.loginWithPin("biz-1", "staff-1", "12"),
+      /PIN must be 4 to 6 numeric digits/,
+    );
+    await assert.rejects(
+      authService.loginWithPin("biz-1", "staff-1", "abcdef"),
+      /PIN must be 4 to 6 numeric digits/,
+    );
+    cleanup();
+  });
+
+  it("authenticates valid PIN and establishes staff session", async () => {
+    setFetchMock(async () =>
+      mockJsonResponse(200, {
+        token: "staff-session-jwt-token",
+        staff: {
+          id: "staff-1",
+          name: "Sathish Velmurugan",
+          role: "owner",
+          employeeCode: "EMP-001",
+          permissions: ["invoices:create"],
+        },
+        business: {
+          id: "biz-1",
+          businessName: "VELS TECH",
+          businessId: "BIZ-001",
+        },
+      }),
+    );
+
+    const res = await authService.loginWithPin("biz-1", "staff-1", "1234");
+    assert.equal(res.token, "staff-session-jwt-token");
+    assert.equal(authService.getToken(), "staff-session-jwt-token");
+    assert.ok(authService.isAuthenticated());
+    assert.equal(authService.getStaff()?.name, "Sathish Velmurugan");
+    assert.equal(authService.getBusiness()?.businessName, "VELS TECH");
+    assert.equal(authService.getLastBusinessId(), "biz-1");
+    cleanup();
+  });
+
+  it("handles 401 invalid PIN", async () => {
+    setFetchMock(async () => mockJsonResponse(401, { message: "Invalid security PIN" }));
+    await assert.rejects(
+      authService.loginWithPin("biz-1", "staff-1", "0000"),
+      /Invalid security PIN/,
+    );
+    cleanup();
+  });
+
+  it("handles 429 lockout response", async () => {
+    setFetchMock(async () => mockJsonResponse(429, { message: "Too many failed attempts" }));
+    await assert.rejects(
+      authService.loginWithPin("biz-1", "staff-1", "0000"),
+      /Too many failed attempts/,
+    );
+    cleanup();
+  });
+});
